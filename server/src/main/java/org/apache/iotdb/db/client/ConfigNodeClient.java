@@ -293,6 +293,7 @@ public class ConfigNodeClient
         }
         configNodes = newConfigNodes;
       } catch (TException e) {
+        logger.error("error when registering DataNode to {} ", configLeader, e);
         configLeader = null;
       }
       reconnect();

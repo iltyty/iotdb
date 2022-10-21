@@ -69,6 +69,7 @@ public class MultiLeaderRPCServiceProcessor implements MultiLeaderConsensusIServ
   @Override
   public void syncLog(TSyncLogReq req, AsyncMethodCallback<TSyncLogRes> resultHandler) {
     try {
+      logger.debug("[MultiLeader][DataRegion-{}], receive TSyncLogReq", req.consensusGroupId.id);
       ConsensusGroupId groupId =
           ConsensusGroupId.Factory.createFromTConsensusGroupId(req.getConsensusGroupId());
       MultiLeaderServerImpl impl = consensus.getImpl(groupId);
@@ -125,9 +126,13 @@ public class MultiLeaderRPCServiceProcessor implements MultiLeaderConsensusIServ
                   currentSearchIndex, consensusRequests));
         }
       }
+      logger.debug(
+          "[MultiLeader][DataRegion-{}] start={}, construct BatchIndexedConsensusRequest.",
+          req.consensusGroupId,
+          requestsInThisBatch.getStartSyncIndex());
       TSStatus writeStatus = impl.getStateMachine().write(requestsInThisBatch);
       logger.debug(
-          "execute TSyncLogReq for {} with result {}", req.consensusGroupId, writeStatus.subStatus);
+          "[MultiLeader][DataRegion-{}] execute complete TSyncLogReq", req.consensusGroupId);
       resultHandler.onComplete(new TSyncLogRes(writeStatus.subStatus));
     } catch (Exception e) {
       resultHandler.onError(e);

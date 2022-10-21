@@ -158,7 +158,15 @@ public class DataRegionStateMachine extends BaseStateMachine {
      * deserialization of PlanNode to be concurrent
      */
     private TSStatus cacheAndInsertLatestNode(InsertNodeWrapper insertNodeWrapper) {
+      logger.debug(
+          "[MultiLeader][DataRegion-{}] start={}, get enqueue lock.",
+          region.getDataRegionId(),
+          insertNodeWrapper.getStartSyncIndex());
       queueLock.lock();
+      logger.debug(
+          "[MultiLeader][DataRegion-{}] start={}, enqueue lock got.",
+          region.getDataRegionId(),
+          insertNodeWrapper.getStartSyncIndex());
       try {
         requestCache.add(insertNodeWrapper);
         // If the peek is not hold by current thread, it should notify the corresponding thread to
@@ -214,16 +222,19 @@ public class DataRegionStateMachine extends BaseStateMachine {
           }
         }
         logger.debug(
-            "source = {}, region = {}, queue size {}, startSyncIndex = {}, endSyncIndex = {}",
-            sourcePeerId,
+            "[MultiLeader][DataRegion-{}] start={}, source = {}, get from queue, queue size {}",
             region.getDataRegionId(),
-            requestCache.size(),
             insertNodeWrapper.getStartSyncIndex(),
-            insertNodeWrapper.getEndSyncIndex());
+            sourcePeerId,
+            requestCache.size());
         List<TSStatus> subStatus = new LinkedList<>();
         for (PlanNode planNode : insertNodeWrapper.getInsertNodes()) {
           subStatus.add(write(planNode));
         }
+        logger.debug(
+            "[MultiLeader][DataRegion-{}] start={}, write done.",
+            region.getDataRegionId(),
+            insertNodeWrapper.getStartSyncIndex());
         queueSortCondition.signalAll();
         return new TSStatus().setSubStatus(subStatus);
       } finally {
@@ -262,6 +273,12 @@ public class DataRegionStateMachine extends BaseStateMachine {
 
     public List<PlanNode> getInsertNodes() {
       return insertNodes;
+    }
+
+    public String toString() {
+      return String.format(
+          "InsertNodeWrapper[startSyncIndex:%d, endSyncIndex:%d, size:%d]",
+          startSyncIndex, endSyncIndex, insertNodes.size());
     }
   }
 
@@ -321,6 +338,10 @@ public class DataRegionStateMachine extends BaseStateMachine {
         IndexedConsensusRequest indexedRequest = (IndexedConsensusRequest) request;
         planNode = grabInsertNode(indexedRequest);
       } else if (request instanceof BatchIndexedConsensusRequest) {
+        logger.debug(
+            "DataRegion {} prepare to write BatchIndexedConsensusRequest. start = {}",
+            region.getDataRegionId(),
+            ((BatchIndexedConsensusRequest) request).getStartSyncIndex());
         InsertNodeWrapper insertNodeWrapper =
             deserializeAndWrap((BatchIndexedConsensusRequest) request);
         String sourcePeerId = ((BatchIndexedConsensusRequest) request).getSourcePeerId();

@@ -425,10 +425,10 @@ public class LogDispatcher {
             new TSyncLogReq(
                 selfPeerId, peer.getGroupId().convertToTConsensusGroupId(), batch.getBatches());
         logger.debug(
-            "Send Batch[startIndex:{}, endIndex:{}] to ConsensusGroup:{}",
+            "[MultiLeader][DataRegion-{}] start={} Send Batch to {}",
+            peer.getGroupId().getId(),
             batch.getStartIndex(),
-            batch.getEndIndex(),
-            peer.getGroupId().convertToTConsensusGroupId());
+            peer.getEndpoint());
         client.syncLog(req, handler);
       } catch (IOException | TException e) {
         logger.error("Can not sync logs to peer {} because", peer, e);
