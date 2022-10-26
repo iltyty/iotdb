@@ -91,9 +91,8 @@ public class IoTDBCQExecIT {
       statement.execute(
           "CREATE CONTINUOUS QUERY cq1\n"
               + "RESAMPLE EVERY 2s\n"
-              + "BOUNDARY "
-              + firstExecutionTime
-              + " BEGIN \n"
+              + String.format("BOUNDARY %d\n", firstExecutionTime)
+              + "BEGIN \n"
               + "  SELECT max_value(s1) \n"
               + "  INTO root.sg.d1(s1_max)\n"
               + "  FROM root.sg.d1\n"
@@ -168,10 +167,10 @@ public class IoTDBCQExecIT {
 
       statement.execute(
           "CREATE CONTINUOUS QUERY cq2\n"
-              + "RESAMPLE RANGE 4s\n"
-              + "BOUNDARY "
-              + firstExecutionTime
-              + " BEGIN \n"
+              + "RESAMPLE \n"
+              + String.format("BOUNDARY %d\n", firstExecutionTime)
+              + "RANGE 4s \n"
+              + "BEGIN \n"
               + "  SELECT max_value(s1) \n"
               + "  INTO root.sg.d2(s1_max)\n"
               + "  FROM root.sg.d2\n"
@@ -246,10 +245,10 @@ public class IoTDBCQExecIT {
 
       statement.execute(
           "CREATE CONTINUOUS QUERY cq3\n"
-              + "RESAMPLE EVERY 20s RANGE 40s\n"
-              + "BOUNDARY "
-              + firstExecutionTime
-              + " BEGIN \n"
+              + "RESAMPLE EVERY 20s\n"
+              + String.format("BOUNDARY %d\n", firstExecutionTime)
+              + "RANGE 40s\n"
+              + "BEGIN \n"
               + "  SELECT max_value(s1) \n"
               + "  INTO root.sg.d3(s1_max)\n"
               + "  FROM root.sg.d3\n"
@@ -330,10 +329,10 @@ public class IoTDBCQExecIT {
 
       statement.execute(
           "CREATE CONTINUOUS QUERY cq4\n"
-              + "RESAMPLE EVERY 20s RANGE 20s, 10s\n"
-              + "BOUNDARY "
-              + firstExecutionTime
-              + " BEGIN \n"
+              + "RESAMPLE EVERY 20s\n"
+              + String.format("BOUNDARY %d\n", firstExecutionTime)
+              + "RANGE 20s, 10s\n"
+              + "BEGIN \n"
               + "  SELECT max_value(s1) \n"
               + "  INTO root.sg.d4(s1_max)\n"
               + "  FROM root.sg.d4\n"
@@ -407,9 +406,8 @@ public class IoTDBCQExecIT {
       statement.execute(
           "CREATE CONTINUOUS QUERY cq5\n"
               + "RESAMPLE EVERY 2s\n"
-              + "BOUNDARY "
-              + firstExecutionTime
-              + " BEGIN \n"
+              + String.format("BOUNDARY %d\n", firstExecutionTime)
+              + "BEGIN \n"
               + "  SELECT s1 + 1 \n"
               + "  INTO root.sg.d5(precalculated_s1)\n"
               + "  FROM root.sg.d5\n"

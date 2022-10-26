@@ -165,7 +165,7 @@ resampleClause
         (EVERY everyInterval=DURATION_LITERAL)?
         (FOR DURATION_LITERAL)?
         (BOUNDARY boundaryTime=timeValue)?
-        (RANGE startTimeOffset=DURATION_LITERAL (COMMA endTimeOffset=DURATION_LITERAL))?
+        (RANGE startTimeOffset=DURATION_LITERAL (COMMA endTimeOffset=DURATION_LITERAL)?)?
     ;
 
 timeoutPolicyClause
