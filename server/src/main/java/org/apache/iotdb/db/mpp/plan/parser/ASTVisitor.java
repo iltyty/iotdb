@@ -843,7 +843,7 @@ public class ASTVisitor extends IoTDBSqlParserBaseVisitor<Statement> {
     }
 
     if (ctx.BOUNDARY() != null) {
-      statement.setBoundaryTime(parseDateExpression(ctx.boundaryTime));
+      statement.setBoundaryTime(parseTimeValue(ctx.boundaryTime, DateTimeUtils.currentTime()));
     }
 
     if (ctx.RANGE() != null) {

@@ -159,7 +159,10 @@ public class CreateContinuousQueryStatement extends Statement implements IConfig
     if (everyInterval
         < IoTDBDescriptor.getInstance().getConfig().getContinuousQueryMinimumEveryInterval()) {
       throw new SemanticException(
-          "CQ: Every interval should not be lower than the `continuous_query_minimum_every_interval` configured.");
+          String.format(
+              "CQ: Every interval [%d] should not be lower than the `continuous_query_minimum_every_interval` [%d] configured.",
+              everyInterval,
+              IoTDBDescriptor.getInstance().getConfig().getContinuousQueryMinimumEveryInterval()));
     }
     if (startTimeOffset <= 0) {
       throw new SemanticException("CQ: The start time offset should be greater than 0.");
@@ -184,8 +187,9 @@ public class CreateContinuousQueryStatement extends Statement implements IConfig
       throw new SemanticException(
           "CQ: Specifying time range in GROUP BY TIME clause is prohibited");
     }
-    if (ExpressionAnalyzer.checkIfTimeFilterExist(
-        queryBodyStatement.getWhereCondition().getPredicate())) {
+    if (queryBodyStatement.getWhereCondition() != null
+        && ExpressionAnalyzer.checkIfTimeFilterExist(
+            queryBodyStatement.getWhereCondition().getPredicate())) {
       throw new SemanticException("CQ: Specifying time filters in the query body is prohibited.");
     }
   }

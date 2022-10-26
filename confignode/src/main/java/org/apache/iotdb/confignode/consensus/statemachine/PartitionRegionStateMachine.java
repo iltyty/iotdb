@@ -161,7 +161,7 @@ public class PartitionRegionStateMachine
       configManager.getNodeManager().startHeartbeatService();
       configManager.getNodeManager().startUnknownDataNodeDetector();
       configManager.getPartitionManager().startRegionCleaner();
-      configManager.getCQManager().startCQScheduler();
+      new Thread(() -> configManager.getCQManager().startCQScheduler()).start();
     } else {
       LOGGER.info(
           "Current node [nodeId:{}, ip:port: {}] is not longer the leader, the new leader is [nodeId:{}]",

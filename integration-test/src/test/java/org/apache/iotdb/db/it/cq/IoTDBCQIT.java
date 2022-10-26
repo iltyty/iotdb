@@ -24,7 +24,6 @@ import org.apache.iotdb.itbase.category.ClusterIT;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
@@ -38,7 +37,6 @@ import static org.junit.Assert.fail;
 
 @RunWith(IoTDBTestRunner.class)
 @Category(ClusterIT.class)
-@Ignore
 public class IoTDBCQIT {
 
   @BeforeClass
@@ -70,7 +68,8 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals(
+            "CQ: Specifying time range in GROUP BY TIME clause is prohibited", e.getMessage());
       }
 
       // 2. specify time filter in where clause
@@ -87,7 +86,7 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals("CQ: Specifying time filters in the query body is prohibited", e.getMessage());
       }
 
       // 3. no every clause meanwhile no group by time
@@ -102,7 +101,7 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals("hh", e.getMessage());
       }
 
       // 4. no INTO clause
@@ -117,7 +116,7 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals("hh", e.getMessage());
       }
 
       // 5. EVERY interval is less than continuous_query_min_every_interval_in_ms in
@@ -135,7 +134,7 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals("hh", e.getMessage());
       }
 
       // 6. start_time_offset < 0
@@ -152,7 +151,7 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals("hh", e.getMessage());
       }
 
       // 7. start_time_offset == 0
@@ -169,7 +168,7 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals("hh", e.getMessage());
       }
 
       // 8. end_time_offset < 0
@@ -186,7 +185,7 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals("hh", e.getMessage());
       }
 
       // 9. end_time_offset == start_time_offset
@@ -203,7 +202,7 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals("hh", e.getMessage());
       }
 
       // 10. end_time_offset > start_time_offset
@@ -220,7 +219,7 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals("hh", e.getMessage());
       }
 
       // 11. group_by_interval > start_time_offset
@@ -237,7 +236,7 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals("hh", e.getMessage());
       }
 
       // 12. TIMEOUT POLICY is not BLOCKED or DISCARD
@@ -255,7 +254,7 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals("hh", e.getMessage());
       }
 
       // 13. create duplicated cq
@@ -272,7 +271,7 @@ public class IoTDBCQIT {
         statement.execute(sql);
         fail();
       } catch (Exception e) {
-        // TODO add assert for error message
+        assertEquals("hh", e.getMessage());
       }
 
     } catch (Exception e) {
