@@ -815,6 +815,16 @@ public class ASTVisitor extends IoTDBSqlParserBaseVisitor<Statement> {
 
     if (ctx.resampleClause() != null) {
       parseResampleClause(ctx.resampleClause(), statement);
+    } else {
+      QueryStatement queryStatement = statement.getQueryBodyStatement();
+      if (!queryStatement.isGroupByTime()) {
+        throw new SemanticException(
+            "CQ: At least one of the parameters `every_interval` and `group_by_interval` needs to be specified.");
+      }
+
+      long interval = queryStatement.getGroupByTimeComponent().getInterval();
+      statement.setEveryInterval(interval);
+      statement.setStartTimeOffset(interval);
     }
 
     if (ctx.timeoutPolicyClause() != null) {

@@ -180,12 +180,12 @@ public class CreateContinuousQueryStatement extends Statement implements IConfig
     }
 
     if (!queryBodyStatement.isSelectInto()) {
-      throw new SemanticException("CQ: The query body is missing an INTO clause.");
+      throw new SemanticException("CQ: The query body misses an INTO clause.");
     }
     GroupByTimeComponent groupByTimeComponent = queryBodyStatement.getGroupByTimeComponent();
     if (groupByTimeComponent.getStartTime() != 0 || groupByTimeComponent.getEndTime() != 0) {
       throw new SemanticException(
-          "CQ: Specifying time range in GROUP BY TIME clause is prohibited");
+          "CQ: Specifying time range in GROUP BY TIME clause is prohibited.");
     }
     if (queryBodyStatement.getWhereCondition() != null
         && ExpressionAnalyzer.checkIfTimeFilterExist(
