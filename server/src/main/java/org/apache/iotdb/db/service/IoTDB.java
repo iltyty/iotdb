@@ -37,6 +37,7 @@ import org.apache.iotdb.db.engine.cache.CacheHitRatioMonitor;
 import org.apache.iotdb.db.engine.compaction.CompactionTaskManager;
 import org.apache.iotdb.db.engine.cq.ContinuousQueryService;
 import org.apache.iotdb.db.engine.flush.FlushManager;
+import org.apache.iotdb.db.engine.profile.ProfileScheduler;
 import org.apache.iotdb.db.engine.trigger.service.TriggerRegistrationService;
 import org.apache.iotdb.db.exception.query.QueryProcessException;
 import org.apache.iotdb.db.localconfignode.LocalConfigNode;
@@ -191,6 +192,8 @@ public class IoTDB implements IoTDBMBean {
     registerManager.register(TriggerRegistrationService.getInstance());
     registerManager.register(ContinuousQueryService.getInstance());
     registerManager.register(MetricService.getInstance());
+
+//    registerManager.register(ProfileScheduler.getInstance());
 
     logger.info("IoTDB configuration: " + config.getConfigMessage());
     logger.info("Congratulation, IoTDB is set up successfully. Now, enjoy yourself!");
