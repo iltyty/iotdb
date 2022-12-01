@@ -1,8 +1,5 @@
 package org.apache.iotdb.db.engine.profile;
 
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
-import org.apache.commons.math3.stat.descriptive.rank.Median;
 import org.apache.iotdb.commons.path.PartialPath;
 import org.apache.iotdb.db.engine.modification.Modification;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
@@ -16,10 +13,15 @@ import org.apache.iotdb.tsfile.read.common.Path;
 import org.apache.iotdb.tsfile.read.reader.IChunkReader;
 import org.apache.iotdb.tsfile.read.reader.IPageReader;
 import org.apache.iotdb.tsfile.read.reader.chunk.ChunkReader;
+
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import org.apache.commons.math3.stat.descriptive.rank.Median;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
+
 import java.io.File;
 import java.io.IOException;
 import java.sql.*;
@@ -37,8 +39,8 @@ public class ProfileComputationTask implements Runnable {
   private static final String DATA_DIR =
       "D:\\Work\\Projects\\iotdb\\data\\data\\sequence\\root.test\\0\\0";
 
-  public void scanOneTsFile(
-      String tsFilePath, Collection<Modification> allModifications) throws IOException {
+  public void scanOneTsFile(String tsFilePath, Collection<Modification> allModifications)
+      throws IOException {
     long start = System.currentTimeMillis();
 
     TsFileSequenceReader reader = new TsFileSequenceReader(tsFilePath);
@@ -74,7 +76,7 @@ public class ProfileComputationTask implements Runnable {
       }
     }
     long end = System.currentTimeMillis();
-//    LOGGER.info(String.format("Calc time: %dms", end - start));
+    //    LOGGER.info(String.format("Calc time: %dms", end - start));
     DB.writeOneTsFileStat(tsFilePath, seriesPaths, seriesStatMap);
   }
 
@@ -102,11 +104,10 @@ public class ProfileComputationTask implements Runnable {
 
     long end = System.currentTimeMillis();
     LOGGER.info(String.format("Time elapsed: %ds.", (end - start) / 1000));
-    LOGGER.info(String.format("统计类：%ds\t空值类：%ds\t乱序类：%ds\t异常类：%ds",
-        time1 / 1000,
-        time4 / 1000,
-        time2 / 1000,
-        time3 / 1000));
+    LOGGER.info(
+        String.format(
+            "统计类：%ds\t空值类：%ds\t乱序类：%ds\t异常类：%ds",
+            time1 / 1000, time4 / 1000, time2 / 1000, time3 / 1000));
 
     for (Exception e : errors) {
       e.printStackTrace();
@@ -218,7 +219,6 @@ public class ProfileComputationTask implements Runnable {
       return chunkReaders;
     }
 
-
     public static long getFileVersion(String tsFilePath) {
       TsFileResource tsFileResource = new TsFileResource(new File(tsFilePath));
       long tsFileSize = tsFileResource.getTsFileSize();
@@ -247,7 +247,6 @@ public class ProfileComputationTask implements Runnable {
       int numChunks = chunkStats.size();
       fileStat.merge(chunkStats.get(numChunks - 1));
     }
-
   }
 
   class SeriesStat {
@@ -577,40 +576,45 @@ public class ProfileComputationTask implements Runnable {
     }
 
     private void initPreparedStatements(Connection conn) throws SQLException {
-      querySeriesStmt = conn.prepareStatement(
-          String.format("SELECT sid FROM %s WHERE ts_path=?",
-              SQLConstant.SERIES_TABLE_NAME));
-      writeToSeriesStmt = conn.prepareStatement(
-          String.format(
-              "INSERT OR IGNORE INTO %s VALUES (?,?)",
-              SQLConstant.SERIES_TABLE_NAME),
-          Statement.RETURN_GENERATED_KEYS);
-      writeToFileStmt = conn.prepareStatement(
-          String.format("INSERT OR IGNORE INTO %s VALUES (?,?,?)",
-              SQLConstant.FILE_TABLE_NAME),
-          Statement.RETURN_GENERATED_KEYS);
-      writeToChunkStmt = conn.prepareStatement(
-          String.format("INSERT INTO %s VALUES (?,?,?,?)",
-              SQLConstant.CHUNK_TABLE_NAME),
-          Statement.RETURN_GENERATED_KEYS);
-      writeToPageStmt = conn.prepareStatement(
-          String.format("INSERT INTO %s VALUES (?,?,?,?)",
-          SQLConstant.PAGE_TABLE_NAME),
-          Statement.RETURN_GENERATED_KEYS);
-      writeToFileSeriesStmt = conn.prepareStatement(
-          String.format("INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-          SQLConstant.FILE_SERIES_STAT_TABLE_NAME));
-      writeToChunkSeriesStmt = conn.prepareStatement(
-          String.format("INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-          SQLConstant.CHUNK_SERIES_STAT_TABLE_NAME));
-      writeToPageSeriesStmt = conn.prepareStatement(
-          String.format("INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-              SQLConstant.PAGE_SERIES_STAT_TABLE_NAME));
+      querySeriesStmt =
+          conn.prepareStatement(
+              String.format("SELECT sid FROM %s WHERE ts_path=?", SQLConstant.SERIES_TABLE_NAME));
+      writeToSeriesStmt =
+          conn.prepareStatement(
+              String.format("INSERT OR IGNORE INTO %s VALUES (?,?)", SQLConstant.SERIES_TABLE_NAME),
+              Statement.RETURN_GENERATED_KEYS);
+      writeToFileStmt =
+          conn.prepareStatement(
+              String.format("INSERT OR IGNORE INTO %s VALUES (?,?,?)", SQLConstant.FILE_TABLE_NAME),
+              Statement.RETURN_GENERATED_KEYS);
+      writeToChunkStmt =
+          conn.prepareStatement(
+              String.format("INSERT INTO %s VALUES (?,?,?,?)", SQLConstant.CHUNK_TABLE_NAME),
+              Statement.RETURN_GENERATED_KEYS);
+      writeToPageStmt =
+          conn.prepareStatement(
+              String.format("INSERT INTO %s VALUES (?,?,?,?)", SQLConstant.PAGE_TABLE_NAME),
+              Statement.RETURN_GENERATED_KEYS);
+      writeToFileSeriesStmt =
+          conn.prepareStatement(
+              String.format(
+                  "INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                  SQLConstant.FILE_SERIES_STAT_TABLE_NAME));
+      writeToChunkSeriesStmt =
+          conn.prepareStatement(
+              String.format(
+                  "INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                  SQLConstant.CHUNK_SERIES_STAT_TABLE_NAME));
+      writeToPageSeriesStmt =
+          conn.prepareStatement(
+              String.format(
+                  "INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                  SQLConstant.PAGE_SERIES_STAT_TABLE_NAME));
     }
 
     public void createTablesIfNotExist() {
       try (Connection conn = ds.getConnection();
-           Statement stmt = conn.createStatement()) {
+          Statement stmt = conn.createStatement()) {
         stmt.execute(SQLConstant.CLOSE_SYNC_SQL);
         stmt.execute(SQLConstant.FOREIGN_CONSTRAINT_SQL);
         stmt.execute(SQLConstant.CREATE_SERIES_SQL);
@@ -743,7 +747,8 @@ public class ProfileComputationTask implements Runnable {
       }
     }
 
-    public void writeOneTsFileStat(String filePath, List<Path> seriesPaths, Map<Path, FileSeriesStat> seriesStatMap) {
+    public void writeOneTsFileStat(
+        String filePath, List<Path> seriesPaths, Map<Path, FileSeriesStat> seriesStatMap) {
       try (Connection conn = ds.getConnection()) {
         conn.setAutoCommit(false);
         initPreparedStatements(conn);
@@ -790,12 +795,11 @@ public class ProfileComputationTask implements Runnable {
       String deleteSQL =
           String.format(
               "DELETE FROM %s WHERE file_path=?",
-              ProfileComputationTask.SQLConstant.FILE_TABLE_NAME
-          );
+              ProfileComputationTask.SQLConstant.FILE_TABLE_NAME);
       Map<String, Long> allRDBMSFiles = new HashMap<>();
       try (Connection conn = ds.getConnection();
-           Statement stmt = conn.createStatement();
-           PreparedStatement deleteStmt = conn.prepareStatement(deleteSQL)) {
+          Statement stmt = conn.createStatement();
+          PreparedStatement deleteStmt = conn.prepareStatement(deleteSQL)) {
         ResultSet rs = stmt.executeQuery(selectSQL);
         while (rs.next()) {
           String filePath = rs.getString(1);
@@ -814,8 +818,7 @@ public class ProfileComputationTask implements Runnable {
         for (Map.Entry<String, Long> entry : allRDBMSFiles.entrySet()) {
           String filePath = entry.getKey();
           long fileVersion = entry.getValue();
-          if (allTsFiles.get(filePath) != null
-              && allTsFiles.get(filePath) == fileVersion) {
+          if (allTsFiles.get(filePath) != null && allTsFiles.get(filePath) == fileVersion) {
             allTsFiles.remove(filePath);
           }
         }

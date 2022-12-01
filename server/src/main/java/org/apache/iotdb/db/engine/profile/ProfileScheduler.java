@@ -4,6 +4,7 @@ import org.apache.iotdb.commons.concurrent.IoTDBThreadPoolFactory;
 import org.apache.iotdb.commons.exception.StartupException;
 import org.apache.iotdb.commons.service.IService;
 import org.apache.iotdb.commons.service.ServiceType;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,22 +13,17 @@ import java.util.concurrent.TimeUnit;
 
 public class ProfileScheduler implements IService {
 
-  private static final Logger LOGGER =
-      LoggerFactory.getLogger(ProfileScheduler.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(ProfileScheduler.class);
 
-  public static final ProfileTaskPoolManager poolManager =
-      ProfileTaskPoolManager.getInstance();
+  public static final ProfileTaskPoolManager poolManager = ProfileTaskPoolManager.getInstance();
 
   private ScheduledExecutorService profileTask;
-
 
   @Override
   public void start() throws StartupException {
     poolManager.start();
-    profileTask =
-        IoTDBThreadPoolFactory.newSingleThreadScheduledExecutor("Profile Scheduler");
+    profileTask = IoTDBThreadPoolFactory.newSingleThreadScheduledExecutor("Profile Scheduler");
     profileTask.schedule(this::computeProfile, 0, TimeUnit.MILLISECONDS);
-
   }
 
   @Override

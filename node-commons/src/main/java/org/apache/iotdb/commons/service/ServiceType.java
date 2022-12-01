@@ -75,7 +75,8 @@ public enum ServiceType {
   INTERNAL_SERVICE("Internal Service", "InternalService"),
   MULTI_LEADER_CONSENSUS_SERVICE("Multi Leader consensus Service", "MultiLeaderRPCService"),
 
-  PROFILE_SCHEDULE_SERVICE("Profile Schedule Service", "");
+  PROFILE_SCHEDULE_SERVICE("Profile Schedule Service", ""),
+  PRE_AGGREGATION_SCHEDULER_SERVICE("Pre-Aggregation Schedule Service", "");
 
   private final String name;
   private final String jmxName;
