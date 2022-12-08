@@ -18,6 +18,7 @@
  */
 package org.apache.iotdb.tsfile.read.common;
 
+import org.apache.iotdb.tsfile.read.filter.basic.Filter;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -447,5 +448,28 @@ public class TimeRangeTest {
     Assert.assertTrue(new TimeRange(0, 3).compareTo(new TimeRange(-2, 3)) > 0);
     Assert.assertTrue(new TimeRange(0, 3).compareTo(new TimeRange(1, 2)) < 0);
     Assert.assertTrue(new TimeRange(5, 6).compareTo(new TimeRange(5, 6)) == 0);
+  }
+
+  @Test
+  public void testGetSQLString() {
+    Assert.assertEquals("start_timestamp >= -100 & end_timestamp <= 100", new TimeRange(-100L, 100L).getSQLString());
+    Assert.assertEquals(
+        "start_timestamp >= -100 & end_timestamp < 100", new TimeRange(-100L, 100L, true, false).getSQLString());
+    Assert.assertEquals(
+        "start_timestamp > -100 & end_timestamp <= 100", new TimeRange(-100L, 100L, false, true).getSQLString());
+    Assert.assertEquals(
+        "start_timestamp > -100 & end_timestamp < 100", new TimeRange(-100L, 100L, false, false).getSQLString());
+    Assert.assertEquals(
+        "start_timestamp > 100", new TimeRange(100L, Long.MAX_VALUE, false, true).getSQLString());
+    Assert.assertEquals(
+        "end_timestamp < 100", new TimeRange(Long.MIN_VALUE, 100L, true, false).getSQLString());
+    Assert.assertEquals("true", new TimeRange(Long.MIN_VALUE, Long.MAX_VALUE).getSQLString());
+  }
+
+  public void testConstructTimeFilter() {
+    Filter timeFilter = new TimeRange(-100L, 100L).constructTimeFilter();
+  }
+
+  public void testTestConstructTimeFilter() {
   }
 }

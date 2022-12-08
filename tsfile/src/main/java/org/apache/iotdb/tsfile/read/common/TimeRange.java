@@ -22,6 +22,8 @@ import org.apache.iotdb.tsfile.read.expression.IExpression;
 import org.apache.iotdb.tsfile.read.expression.impl.BinaryExpression;
 import org.apache.iotdb.tsfile.read.expression.impl.GlobalTimeExpression;
 import org.apache.iotdb.tsfile.read.filter.TimeFilter;
+import org.apache.iotdb.tsfile.read.filter.basic.Filter;
+import org.apache.iotdb.tsfile.read.filter.factory.FilterFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -459,8 +461,8 @@ public class TimeRange implements Comparable<TimeRange> {
   }
 
   public String getSQLString() {
-    String rightSQL = "time <" + (rightClose ? "= " : " ") + max;
-    String leftSQL = "time >" + (leftClose ? "= " : " ") + min;
+    String rightSQL = "end_timestamp <" + (rightClose ? "= " : " ") + max;
+    String leftSQL = "start_timestamp >" + (leftClose ? "= " : " ") + min;
     if (min == Long.MIN_VALUE && max == Long.MAX_VALUE) {
       return "true";
     } else if (min == Long.MIN_VALUE) {
@@ -469,5 +471,30 @@ public class TimeRange implements Comparable<TimeRange> {
       return leftSQL;
     }
     return leftSQL + " & " + rightSQL;
+  }
+
+  public Filter constructTimeFilter() {
+    Filter leftFilter = leftClose ? TimeFilter.gtEq(min) : TimeFilter.gt(min);
+    Filter rightFilter = rightClose ? TimeFilter.ltEq(max) : TimeFilter.lt(max);
+    if (min == Long.MIN_VALUE && max == Long.MAX_VALUE) {
+      return null;
+    } else if (max == Long.MAX_VALUE) {
+      return leftFilter;
+    } else if (min == Long.MIN_VALUE) {
+      return rightFilter;
+    }
+    return FilterFactory.and(leftFilter, rightFilter);
+  }
+
+  public static Filter constructTimeFilter(List<TimeRange> timeRangeList) {
+    if (timeRangeList == null || timeRangeList.isEmpty()) {
+      return null;
+    }
+    Filter res = timeRangeList.get(0).constructTimeFilter();
+    for (int i = 1; i < timeRangeList.size(); i++) {
+      Filter timeFilter = timeRangeList.get(i).constructTimeFilter();
+      res = FilterFactory.or(res, timeFilter);
+    }
+    return res;
   }
 }
