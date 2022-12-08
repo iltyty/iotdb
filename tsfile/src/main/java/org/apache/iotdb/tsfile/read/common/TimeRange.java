@@ -23,11 +23,7 @@ import org.apache.iotdb.tsfile.read.expression.impl.BinaryExpression;
 import org.apache.iotdb.tsfile.read.expression.impl.GlobalTimeExpression;
 import org.apache.iotdb.tsfile.read.filter.TimeFilter;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -460,5 +456,18 @@ public class TimeRange implements Comparable<TimeRange> {
     }
 
     return BinaryExpression.and(left, right);
+  }
+
+  public String getSQLString() {
+    String rightSQL = "time <" + (rightClose ? "= " : " ") + max;
+    String leftSQL = "time >" + (leftClose ? "= " : " ") + min;
+    if (min == Long.MIN_VALUE && max == Long.MAX_VALUE) {
+      return "true";
+    } else if (min == Long.MIN_VALUE) {
+      return rightSQL;
+    } else if (max == Long.MAX_VALUE) {
+      return leftSQL;
+    }
+    return leftSQL + " & " + rightSQL;
   }
 }
