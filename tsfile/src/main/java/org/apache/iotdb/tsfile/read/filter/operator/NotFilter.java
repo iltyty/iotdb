@@ -19,6 +19,7 @@
 package org.apache.iotdb.tsfile.read.filter.operator;
 
 import org.apache.iotdb.tsfile.file.metadata.statistics.Statistics;
+import org.apache.iotdb.tsfile.read.common.TimeRange;
 import org.apache.iotdb.tsfile.read.filter.basic.Filter;
 import org.apache.iotdb.tsfile.read.filter.factory.FilterFactory;
 import org.apache.iotdb.tsfile.read.filter.factory.FilterSerializeId;
@@ -27,6 +28,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Objects;
 
 /** NotFilter necessary. Use InvertExpressionVisitor */
@@ -111,5 +113,14 @@ public class NotFilter implements Filter, Serializable {
   @Override
   public int hashCode() {
     return Objects.hash(that);
+  }
+
+  @Override
+  public List<TimeRange> getTimeRange() {
+    List<TimeRange> thatTimeRangeList = that.getTimeRange();
+    if (thatTimeRangeList == null) {
+      return null;
+    }
+    return TimeRange.getComplement(thatTimeRangeList);
   }
 }

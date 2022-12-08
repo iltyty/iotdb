@@ -19,11 +19,13 @@
 package org.apache.iotdb.tsfile.read.filter.operator;
 
 import org.apache.iotdb.tsfile.file.metadata.statistics.Statistics;
+import org.apache.iotdb.tsfile.read.common.TimeRange;
 import org.apache.iotdb.tsfile.read.filter.basic.BinaryFilter;
 import org.apache.iotdb.tsfile.read.filter.basic.Filter;
 import org.apache.iotdb.tsfile.read.filter.factory.FilterSerializeId;
 
 import java.io.Serializable;
+import java.util.List;
 
 /** Either of the left and right operators of AndExpression must satisfy the condition. */
 public class OrFilter extends BinaryFilter implements Serializable {
@@ -71,5 +73,17 @@ public class OrFilter extends BinaryFilter implements Serializable {
   @Override
   public FilterSerializeId getSerializeId() {
     return FilterSerializeId.OR;
+  }
+
+  @Override
+  public List<TimeRange> getTimeRange() {
+    List<TimeRange> leftTimeRangeList = left.getTimeRange();
+    List<TimeRange> rightTimeRangeList = right.getTimeRange();
+    if (leftTimeRangeList == null) {
+      return rightTimeRangeList;
+    } else if (rightTimeRangeList == null) {
+      return leftTimeRangeList;
+    }
+    return TimeRange.getUnion(leftTimeRangeList, rightTimeRangeList);
   }
 }

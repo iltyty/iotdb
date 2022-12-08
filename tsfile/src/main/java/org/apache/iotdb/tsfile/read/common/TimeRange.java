@@ -28,6 +28,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * interval [min,max] of long data type
@@ -50,6 +52,12 @@ public class TimeRange implements Comparable<TimeRange> {
    */
   public TimeRange(long min, long max) {
     set(min, max);
+  }
+
+  public TimeRange(long min, long max, boolean leftClose, boolean rightClose) {
+    set(min, max);
+    setLeftClose(leftClose);
+    setRightClose(rightClose);
   }
 
   @Override
@@ -179,7 +187,7 @@ public class TimeRange implements Comparable<TimeRange> {
     } else if (!leftClose && !r.rightClose && r.max <= min) {
       // e.g.,[1,3) does not intersect with (3,5]
       return false;
-    } else if (leftClose && r.rightClose && r.max <= min - 2) {
+    } else if (leftClose && r.rightClose && min > Long.MIN_VALUE + 1 && r.max <= min - 2) {
       // e.g.,[1,3] does not intersect with [5,6].
       // take care of overflow. e.g., Long.MIN_VALUE
       return false;
@@ -187,7 +195,7 @@ public class TimeRange implements Comparable<TimeRange> {
       return false;
     } else if (!rightClose && !r.leftClose && r.min >= max) {
       return false;
-    } else if (rightClose && r.leftClose && r.min >= max + 2) {
+    } else if (rightClose && r.leftClose && max < Long.MAX_VALUE - 2 && r.min >= max + 2) {
       // take care of overflow. e.g., Long.MAX_VALUE
       return false;
     } else {
@@ -204,7 +212,10 @@ public class TimeRange implements Comparable<TimeRange> {
       return false;
     }
     TimeRange that = (TimeRange) o;
-    return (this.min == that.min && this.max == that.max);
+    return this.min == that.min
+        && this.max == that.max
+        && this.leftClose == that.leftClose
+        && this.rightClose == that.rightClose;
   }
 
   @Override
@@ -383,6 +394,54 @@ public class TimeRange implements Comparable<TimeRange> {
 
     remains.add(this);
     return remains;
+  }
+
+  // need to ensure that both timeRangeList1 and timeRangeList2 are not null
+  public static List<TimeRange> getUnion(
+      List<TimeRange> timeRangeList1, List<TimeRange> timeRangeList2) {
+    List<TimeRange> unionResult =
+        Stream.concat(timeRangeList1.stream(), timeRangeList2.stream())
+            .collect(Collectors.toList());
+    return TimeRange.sortAndMerge(unionResult);
+  }
+
+  // need to ensure that both timeRangeList1 and timeRangeList2 are not null
+  public static List<TimeRange> getIntersection(
+      List<TimeRange> timeRangeList1, List<TimeRange> timeRangeList2) {
+    List<TimeRange> intersectionResult = new ArrayList<>();
+    for (TimeRange timeRange1 : timeRangeList1) {
+      List<TimeRange> remains = timeRange1.getRemains(timeRangeList2);
+      intersectionResult.addAll(remains);
+    }
+    return TimeRange.sortAndMerge(intersectionResult);
+  }
+
+  // need to ensure that both timeRangeList1 and timeRangeList2 are not null
+  public static List<TimeRange> getComplement(List<TimeRange> timeRangeList) {
+    List<TimeRange> sortedTimeRangeList = TimeRange.sortAndMerge(timeRangeList);
+    List<TimeRange> complementResult = new ArrayList<>();
+    int n = sortedTimeRangeList.size();
+    for (int i = 0; i < n; i++) {
+      TimeRange curTimeRange = sortedTimeRangeList.get(i);
+      if (i == 0 && curTimeRange.min != Long.MIN_VALUE) {
+        TimeRange timeRange = new TimeRange(Long.MIN_VALUE, curTimeRange.min);
+        timeRange.setRightClose(!curTimeRange.leftClose);
+        complementResult.add(timeRange);
+      }
+      if (i == n - 1 && curTimeRange.max != Long.MAX_VALUE) {
+        TimeRange timeRange = new TimeRange(curTimeRange.max, Long.MAX_VALUE);
+        timeRange.setLeftClose(!curTimeRange.rightClose);
+        complementResult.add(timeRange);
+      }
+      if (i > 0) {
+        TimeRange prevTimeRange = sortedTimeRangeList.get(i - 1);
+        TimeRange timeRange = new TimeRange(prevTimeRange.max, curTimeRange.min);
+        timeRange.setLeftClose(!prevTimeRange.rightClose);
+        timeRange.setRightClose(!curTimeRange.leftClose);
+        complementResult.add(timeRange);
+      }
+    }
+    return TimeRange.sortAndMerge(complementResult);
   }
 
   public IExpression getExpression() {
