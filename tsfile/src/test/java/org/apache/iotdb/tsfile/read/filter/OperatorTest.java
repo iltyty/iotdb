@@ -18,12 +18,17 @@
  */
 package org.apache.iotdb.tsfile.read.filter;
 
+import org.apache.iotdb.tsfile.read.common.TimeRange;
 import org.apache.iotdb.tsfile.read.filter.basic.Filter;
 import org.apache.iotdb.tsfile.read.filter.factory.FilterFactory;
 import org.apache.iotdb.tsfile.utils.Binary;
 
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
 
 public class OperatorTest {
 
@@ -33,21 +38,33 @@ public class OperatorTest {
   @Test
   public void testEq() {
     Filter timeEq = TimeFilter.eq(100L);
+    List<TimeRange> timeRangeList1 = timeEq.getTimeRange();
     Assert.assertTrue(timeEq.satisfy(100, 100));
     Assert.assertFalse(timeEq.satisfy(101, 100));
+    Assert.assertEquals(1, timeRangeList1.size());
+    Assert.assertEquals(new TimeRange(100L, 100L), timeRangeList1.get(0));
 
     Filter filter2 = FilterFactory.and(TimeFilter.eq(100L), ValueFilter.eq(50));
+    List<TimeRange> timeRangeList2 = filter2.getTimeRange();
     Assert.assertTrue(filter2.satisfy(100, 50));
     Assert.assertFalse(filter2.satisfy(100, 51));
+    Assert.assertEquals(1, timeRangeList1.size());
+    Assert.assertEquals(new TimeRange(100L, 100L), timeRangeList1.get(0));
 
     Filter filter3 = ValueFilter.eq(true);
+    List<TimeRange> timeRangeList3 = filter3.getTimeRange();
     Assert.assertTrue(filter3.satisfy(100, true));
     Assert.assertFalse(filter3.satisfy(100, false));
+    Assert.assertNull(timeRangeList3);
   }
 
   @Test
   public void testGt() {
     Filter timeGt = TimeFilter.gt(TESTED_TIMESTAMP);
+    List<TimeRange> timeRangeList = timeGt.getTimeRange();
+    Assert.assertEquals(1, timeRangeList.size());
+    Assert.assertEquals(
+        new TimeRange(TESTED_TIMESTAMP, Long.MAX_VALUE, false, true), timeRangeList.get(0));
     Assert.assertTrue(timeGt.satisfy(TESTED_TIMESTAMP + 1, 100));
     Assert.assertFalse(timeGt.satisfy(TESTED_TIMESTAMP, 100));
     Assert.assertFalse(timeGt.satisfy(TESTED_TIMESTAMP - 1, 100));
@@ -65,6 +82,9 @@ public class OperatorTest {
   @Test
   public void testGtEq() {
     Filter timeGtEq = TimeFilter.gtEq(TESTED_TIMESTAMP);
+    List<TimeRange> timeRangeList = timeGtEq.getTimeRange();
+    Assert.assertEquals(1, timeRangeList.size());
+    Assert.assertEquals(new TimeRange(TESTED_TIMESTAMP, Long.MAX_VALUE), timeRangeList.get(0));
     Assert.assertTrue(timeGtEq.satisfy(TESTED_TIMESTAMP + 1, 100));
     Assert.assertTrue(timeGtEq.satisfy(TESTED_TIMESTAMP, 100));
     Assert.assertFalse(timeGtEq.satisfy(TESTED_TIMESTAMP - 1, 100));
@@ -78,6 +98,10 @@ public class OperatorTest {
   @Test
   public void testLt() {
     Filter timeLt = TimeFilter.lt(TESTED_TIMESTAMP);
+    List<TimeRange> timeRangeList = timeLt.getTimeRange();
+    Assert.assertEquals(1, timeRangeList.size());
+    Assert.assertEquals(
+        new TimeRange(Long.MIN_VALUE, TESTED_TIMESTAMP, true, false), timeRangeList.get(0));
     Assert.assertTrue(timeLt.satisfy(TESTED_TIMESTAMP - 1, 100));
     Assert.assertFalse(timeLt.satisfy(TESTED_TIMESTAMP, 100));
     Assert.assertFalse(timeLt.satisfy(TESTED_TIMESTAMP + 1, 100));
@@ -91,6 +115,9 @@ public class OperatorTest {
   @Test
   public void testLtEq() {
     Filter timeLtEq = TimeFilter.ltEq(TESTED_TIMESTAMP);
+    List<TimeRange> timeRangeList = timeLtEq.getTimeRange();
+    Assert.assertEquals(1, timeRangeList.size());
+    Assert.assertEquals(new TimeRange(Long.MIN_VALUE, TESTED_TIMESTAMP), timeRangeList.get(0));
     Assert.assertTrue(timeLtEq.satisfy(TESTED_TIMESTAMP - 1, 100));
     Assert.assertTrue(timeLtEq.satisfy(TESTED_TIMESTAMP, 100));
     Assert.assertFalse(timeLtEq.satisfy(TESTED_TIMESTAMP + 1, 100));
@@ -104,6 +131,9 @@ public class OperatorTest {
   @Test
   public void testNot() {
     Filter timeLt = TimeFilter.not(TimeFilter.lt(TESTED_TIMESTAMP));
+    List<TimeRange> timeRangeList = timeLt.getTimeRange();
+    Assert.assertEquals(1, timeRangeList.size());
+    Assert.assertEquals(new TimeRange(TESTED_TIMESTAMP, Long.MAX_VALUE), timeRangeList.get(0));
     Assert.assertFalse(timeLt.satisfy(TESTED_TIMESTAMP - 1, 100));
     Assert.assertTrue(timeLt.satisfy(TESTED_TIMESTAMP, 100));
     Assert.assertTrue(timeLt.satisfy(TESTED_TIMESTAMP + 1, 100));
@@ -117,6 +147,10 @@ public class OperatorTest {
   @Test
   public void testNotEq() {
     Filter timeNotEq = TimeFilter.notEq(100L);
+    List<TimeRange> timeRangeList = timeNotEq.getTimeRange();
+    Assert.assertEquals(2, timeRangeList.size());
+    Assert.assertEquals(new TimeRange(Long.MIN_VALUE, 100L, true, false), timeRangeList.get(0));
+    Assert.assertEquals(new TimeRange(100L, Long.MAX_VALUE, false, true), timeRangeList.get(1));
     Assert.assertFalse(timeNotEq.satisfy(100, 100));
     Assert.assertTrue(timeNotEq.satisfy(101, 100));
 
@@ -126,13 +160,53 @@ public class OperatorTest {
   }
 
   @Test
+  public void testIn() {
+    Filter timeIn = TimeFilter.in(new HashSet<>(Arrays.asList(-100L, 0L, 100L)), false);
+    List<TimeRange> inTimeRangeList = timeIn.getTimeRange();
+    Assert.assertEquals(3, inTimeRangeList.size());
+    Assert.assertEquals(new TimeRange(-100L, -100L), inTimeRangeList.get(0));
+    Assert.assertEquals(new TimeRange(0L, 0L), inTimeRangeList.get(1));
+    Assert.assertEquals(new TimeRange(100L, 100L), inTimeRangeList.get(2));
+    Filter timeInNot = TimeFilter.in(new HashSet<>(Arrays.asList(-100L, 0L, 100L)), true);
+    List<TimeRange> inNotTimeRangeList = timeInNot.getTimeRange();
+    Assert.assertEquals(4, inNotTimeRangeList.size());
+    Assert.assertEquals(
+        new TimeRange(Long.MIN_VALUE, -100L, true, false), inNotTimeRangeList.get(0));
+    Assert.assertEquals(new TimeRange(-100L, 0L, false, false), inNotTimeRangeList.get(1));
+    Assert.assertEquals(new TimeRange(0L, 100L, false, false), inNotTimeRangeList.get(2));
+    Assert.assertEquals(
+        new TimeRange(100L, Long.MAX_VALUE, false, true), inNotTimeRangeList.get(3));
+  }
+
+  @Test
+  public void testBetween() {
+    Filter timeBetween = TimeFilter.between(-100L, 100L, false);
+    List<TimeRange> betweenTimeRangeList = timeBetween.getTimeRange();
+    Assert.assertEquals(1, betweenTimeRangeList.size());
+    Assert.assertEquals(new TimeRange(-100L, 100L), betweenTimeRangeList.get(0));
+    Filter timeBetweenNot = TimeFilter.between(-100L, 100L, true);
+    List<TimeRange> betweenNotTimeRangeList = timeBetweenNot.getTimeRange();
+    Assert.assertEquals(2, betweenNotTimeRangeList.size());
+    Assert.assertEquals(
+        new TimeRange(Long.MIN_VALUE, -100L, true, false), betweenNotTimeRangeList.get(0));
+    Assert.assertEquals(
+        new TimeRange(100L, Long.MAX_VALUE, false, true), betweenNotTimeRangeList.get(1));
+  }
+
+  @Test
   public void testAndOr() {
     Filter andFilter = FilterFactory.and(TimeFilter.gt(100L), ValueFilter.lt(50.9));
+    List<TimeRange> andTimeRangeList = andFilter.getTimeRange();
+    Assert.assertEquals(1, andTimeRangeList.size());
+    Assert.assertEquals(new TimeRange(100L, Long.MAX_VALUE, false, true), andTimeRangeList.get(0));
     Assert.assertTrue(andFilter.satisfy(101L, 50d));
     Assert.assertFalse(andFilter.satisfy(101L, 60d));
     Assert.assertFalse(andFilter.satisfy(99L, 50d));
 
     Filter orFilter = FilterFactory.or(andFilter, TimeFilter.eq(1000L));
+    List<TimeRange> orTimeRangeList = orFilter.getTimeRange();
+    Assert.assertEquals(1, orTimeRangeList.size());
+    Assert.assertEquals(new TimeRange(100L, Long.MAX_VALUE, false, true), orTimeRangeList.get(0));
     Assert.assertTrue(orFilter.satisfy(101L, 50d));
     Assert.assertFalse(orFilter.satisfy(101L, 60d));
     Assert.assertTrue(orFilter.satisfy(1000L, 50d));
@@ -141,6 +215,17 @@ public class OperatorTest {
     Assert.assertFalse(andFilter2.satisfy(101L, 50d));
     Assert.assertFalse(andFilter2.satisfy(101L, 60d));
     Assert.assertTrue(andFilter2.satisfy(1000L, 51d));
+
+    Filter orFilter2 = FilterFactory.or(andFilter2, TimeFilter.between(-100, 0, false));
+    List<TimeRange> orTimeRangeList2 = orFilter2.getTimeRange();
+    Assert.assertEquals(2, orTimeRangeList2.size());
+    Assert.assertEquals(new TimeRange(-100, 0), orTimeRangeList2.get(0));
+
+    Filter orFilter3 = FilterFactory.or(andFilter2, TimeFilter.between(-100, 0, true));
+    List<TimeRange> orTimeRangeList3 = orFilter3.getTimeRange();
+    Assert.assertEquals(2, orTimeRangeList3.size());
+    Assert.assertEquals(new TimeRange(Long.MIN_VALUE, -100, true, false), orTimeRangeList3.get(0));
+    Assert.assertEquals(new TimeRange(0, Long.MAX_VALUE, false, true), orTimeRangeList3.get(1));
   }
 
   @Test
