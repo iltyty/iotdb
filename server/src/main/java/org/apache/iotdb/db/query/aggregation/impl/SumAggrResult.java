@@ -103,7 +103,7 @@ public class SumAggrResult extends AggregateResult implements RemovableAggregate
     setTime(timestamps[0]);
   }
 
-  private void updateSum(Object sumVal) throws UnSupportedDataTypeException {
+  protected void updateSum(Object sumVal) throws UnSupportedDataTypeException {
     if (sumVal != null) {
       double preValue = getDoubleValue();
       switch (seriesDataType) {

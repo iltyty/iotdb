@@ -113,10 +113,12 @@ public class SelectComponent {
         if (expression instanceof TimeSeriesOperand) {
           pathsCache.add(((TimeSeriesOperand) expression).getPath());
         } else if (expression instanceof FunctionExpression
-            && expression.isBuiltInAggregationFunctionExpression()) {
+                && expression.isBuiltInAggregationFunctionExpression()
+            || expression.isUserDefinedAggregationFunctionExpression()) {
           pathsCache.add(((TimeSeriesOperand) expression.getExpressions().get(0)).getPath());
         } else {
-          pathsCache.add(null);
+          //          pathsCache.add(null);
+          pathsCache.add(((TimeSeriesOperand) expression.getExpressions().get(0)).getPath());
         }
       }
     }

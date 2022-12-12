@@ -35,7 +35,12 @@ public enum AggregationType {
   MIN_TIME,
   MAX_VALUE,
   MIN_VALUE,
-  EXTREME;
+  EXTREME,
+  PREAGG_MAX_VALUE,
+  PREAGG_MIN_VALUE,
+  PREAGG_COUNT,
+  PREAGG_AVG,
+  PREAGG_SUM;
 
   /**
    * give an integer to return a data type.
@@ -65,6 +70,16 @@ public enum AggregationType {
         return MIN_VALUE;
       case 9:
         return EXTREME;
+      case 10:
+        return PREAGG_MAX_VALUE;
+      case 11:
+        return PREAGG_MIN_VALUE;
+      case 12:
+        return PREAGG_COUNT;
+      case 13:
+        return PREAGG_AVG;
+      case 14:
+        return PREAGG_SUM;
       default:
         throw new IllegalArgumentException("Invalid Aggregation Type: " + i);
     }
@@ -102,6 +117,21 @@ public enum AggregationType {
         break;
       case EXTREME:
         i = 9;
+        break;
+      case PREAGG_MAX_VALUE:
+        i = 10;
+        break;
+      case PREAGG_MIN_VALUE:
+        i = 11;
+        break;
+      case PREAGG_COUNT:
+        i = 12;
+        break;
+      case PREAGG_AVG:
+        i = 13;
+        break;
+      case PREAGG_SUM:
+        i = 14;
         break;
       default:
         throw new IllegalArgumentException("Invalid Aggregation Type: " + this.name());

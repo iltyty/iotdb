@@ -19,6 +19,7 @@
 
 package org.apache.iotdb.db.query.aggregation;
 
+import org.apache.iotdb.db.engine.preaggregation.api.SeriesStat;
 import org.apache.iotdb.db.exception.query.QueryProcessException;
 import org.apache.iotdb.db.query.factory.AggregateResultFactory;
 import org.apache.iotdb.db.query.reader.series.IReaderByTimestamp;
@@ -39,7 +40,7 @@ import java.nio.ByteBuffer;
 public abstract class AggregateResult implements Cloneable {
 
   public static final int TIME_LENGTH_FOR_FIRST_VALUE = 100;
-  private final AggregationType aggregationType;
+  private AggregationType aggregationType;
   protected TSDataType resultDataType;
 
   /**
@@ -81,6 +82,8 @@ public abstract class AggregateResult implements Cloneable {
    */
   public abstract void updateResultFromStatistics(Statistics statistics)
       throws QueryProcessException;
+
+  public void updateResultFromSeriesStat(SeriesStat seriesStat) {}
 
   /**
    * Aggregate results cannot be calculated using Statistics directly, using the data in each page.
@@ -124,6 +127,8 @@ public abstract class AggregateResult implements Cloneable {
 
   /** Merge another aggregateResult into this */
   public abstract void merge(AggregateResult another);
+
+  public void merge(Object anotherValue) throws UnSupportedDataTypeException {}
 
   public static AggregateResult deserializeFrom(ByteBuffer buffer) {
     AggregationType aggregationType = AggregationType.deserialize(buffer);
@@ -352,6 +357,10 @@ public abstract class AggregateResult implements Cloneable {
   @Override
   public String toString() {
     return String.valueOf(getResult());
+  }
+
+  public void setAggregationType(AggregationType aggregationType) {
+    this.aggregationType = aggregationType;
   }
 
   public AggregationType getAggregationType() {

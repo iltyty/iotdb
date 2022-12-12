@@ -62,6 +62,11 @@ public class SQLConstant {
   public static final String COUNT = "count";
   public static final String AVG = "avg";
   public static final String SUM = "sum";
+  public static final String PREAGG_MAX_VALUE = "preagg_max_value";
+  public static final String PREAGG_MIN_VALUE = "preagg_min_value";
+  public static final String PREAGG_COUNT = "preagg_count";
+  public static final String PREAGG_AVG = "preagg_avg";
+  public static final String PREAGG_SUM = "preagg_sum";
 
   public static final String LAST = "last";
 

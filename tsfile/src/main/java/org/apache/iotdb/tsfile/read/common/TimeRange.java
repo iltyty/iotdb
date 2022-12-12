@@ -322,8 +322,38 @@ public class TimeRange implements Comparable<TimeRange> {
     return unionResult;
   }
 
+  public void intersect(TimeRange rhs) {
+    if (min < rhs.min) {
+      min = rhs.min;
+      leftClose = rhs.leftClose;
+    } else if (min == rhs.min) {
+      leftClose &= rhs.leftClose;
+    }
+    if (max > rhs.max) {
+      max = rhs.max;
+      rightClose = rhs.rightClose;
+    } else if (max == rhs.max) {
+      rightClose &= rhs.rightClose;
+    }
+    if (max < min ||
+        (max == min && (!leftClose || !rightClose))) {
+      throw new IllegalArgumentException("Invalid input!");
+    }
+  }
+
   public void merge(TimeRange rhs) {
-    set(Math.min(getMin(), rhs.getMin()), Math.max(getMax(), rhs.getMax()));
+    if (min > rhs.min) {
+      min = rhs.min;
+      leftClose = rhs.leftClose;
+    } else if (min == rhs.min) {
+      leftClose |= rhs.leftClose;
+    }
+    if (max < rhs.max) {
+      max = rhs.max;
+      rightClose = rhs.rightClose;
+    } else if (max == rhs.max) {
+      rightClose |= rhs.rightClose;
+    }
   }
 
   /**
@@ -341,7 +371,7 @@ public class TimeRange implements Comparable<TimeRange> {
 
     for (TimeRange prev : timeRangesPrev) {
       // +2 is to keep consistent with the definition of `intersects` of two closed intervals
-      if (prev.min >= max + 2) {
+      if (max<= Long.MAX_VALUE - 2 && prev.min >= max + 2) {
         // break early since timeRangesPrev is sorted
         break;
       }
@@ -394,6 +424,17 @@ public class TimeRange implements Comparable<TimeRange> {
     return remains;
   }
 
+  public static List<TimeRange> getRemains(
+      List<TimeRange> timeRangeList1, List<TimeRange> timeRangeList2) {
+    TimeRange.sortAndMerge(timeRangeList1);
+    TimeRange.sortAndMerge(timeRangeList2);
+    List<TimeRange> res = new ArrayList<>();
+    for (TimeRange timeRange1 : timeRangeList1) {
+      res.addAll(timeRange1.getRemains(timeRangeList2));
+    }
+    return TimeRange.sortAndMerge(res);
+  }
+
   // need to ensure that both timeRangeList1 and timeRangeList2 are not null
   public static List<TimeRange> getUnion(
       List<TimeRange> timeRangeList1, List<TimeRange> timeRangeList2) {
@@ -406,10 +447,16 @@ public class TimeRange implements Comparable<TimeRange> {
   // need to ensure that both timeRangeList1 and timeRangeList2 are not null
   public static List<TimeRange> getIntersection(
       List<TimeRange> timeRangeList1, List<TimeRange> timeRangeList2) {
-    List<TimeRange> intersectionResult = new ArrayList<>();
-    for (TimeRange timeRange1 : timeRangeList1) {
-      List<TimeRange> remains = timeRange1.getRemains(timeRangeList2);
-      intersectionResult.addAll(remains);
+    List<TimeRange> intersectionResult = new ArrayList<>(timeRangeList1);
+    ListIterator<TimeRange> iter = intersectionResult.listIterator();
+    while (iter.hasNext()) {
+      for (TimeRange timeRange2 : timeRangeList2) {
+        try {
+          iter.next().intersect(timeRange2);
+        } catch (IllegalArgumentException e) {
+          iter.remove();
+        }
+      }
     }
     return TimeRange.sortAndMerge(intersectionResult);
   }
@@ -470,7 +517,7 @@ public class TimeRange implements Comparable<TimeRange> {
     } else if (max == Long.MAX_VALUE) {
       return leftSQL;
     }
-    return leftSQL + " & " + rightSQL;
+    return leftSQL + " AND " + rightSQL;
   }
 
   public Filter constructTimeFilter() {

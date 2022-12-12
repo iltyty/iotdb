@@ -22,6 +22,7 @@ package org.apache.iotdb.db.mpp.plan.expression.multi;
 import org.apache.iotdb.commons.conf.IoTDBConstant;
 import org.apache.iotdb.commons.path.PartialPath;
 import org.apache.iotdb.commons.udf.builtin.BuiltinAggregationFunction;
+import org.apache.iotdb.commons.udf.builtin.BuiltinPreAggregationFunction;
 import org.apache.iotdb.db.exception.query.LogicalOptimizeException;
 import org.apache.iotdb.db.mpp.common.NodeRef;
 import org.apache.iotdb.db.mpp.plan.expression.Expression;
@@ -83,6 +84,8 @@ public class FunctionExpression extends Expression {
     isBuiltInAggregationFunctionExpression =
         BuiltinAggregationFunction.getNativeFunctionNames().contains(functionName.toLowerCase());
     isConstantOperandCache = true;
+    isUserDefinedAggregationFunctionExpression =
+        BuiltinPreAggregationFunction.getNativeFunctionNames().contains(functionName.toLowerCase());
   }
 
   public FunctionExpression(

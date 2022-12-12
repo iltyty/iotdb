@@ -221,11 +221,18 @@ public class OperatorTest {
     Assert.assertEquals(2, orTimeRangeList2.size());
     Assert.assertEquals(new TimeRange(-100, 0), orTimeRangeList2.get(0));
 
-    Filter orFilter3 = FilterFactory.or(andFilter2, TimeFilter.between(-100, 0, true));
-    List<TimeRange> orTimeRangeList3 = orFilter3.getTimeRange();
-    Assert.assertEquals(2, orTimeRangeList3.size());
-    Assert.assertEquals(new TimeRange(Long.MIN_VALUE, -100, true, false), orTimeRangeList3.get(0));
-    Assert.assertEquals(new TimeRange(0, Long.MAX_VALUE, false, true), orTimeRangeList3.get(1));
+    Filter andFilter3 = FilterFactory.and(andFilter2, TimeFilter.between(200, 1000, false));
+    List<TimeRange> andTimeRangeList3 = andFilter3.getTimeRange();
+    Assert.assertEquals(1, andTimeRangeList3.size());
+    Assert.assertEquals(new TimeRange(200, 1000), andTimeRangeList3.get(0));
+
+    Filter andFilter4 = FilterFactory.and(andFilter3, TimeFilter.lt(200));
+    List<TimeRange> andTimeRangeList4 = andFilter4.getTimeRange();
+    Assert.assertEquals(0, andTimeRangeList4.size());
+
+    Filter andFilter5 = FilterFactory.and(andFilter3, TimeFilter.gt(1000));
+    List<TimeRange> andTimeRangeList5 = andFilter5.getTimeRange();
+    Assert.assertEquals(0, andTimeRangeList5.size());
   }
 
   @Test

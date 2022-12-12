@@ -7,6 +7,8 @@ import org.apache.iotdb.tsfile.read.common.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+// Used to store statistical information of one TsFile when calculating.
+// Write to RDBMS per chunk.
 public class FileSeriesStat {
   private int fid = -1;
   private int sid = -1;

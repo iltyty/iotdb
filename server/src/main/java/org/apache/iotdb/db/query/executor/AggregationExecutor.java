@@ -492,7 +492,7 @@ public class AggregationExecutor {
   }
 
   /** Aggregate each result in the list with the statistics */
-  private static int aggregateStatistics(
+  protected static int aggregateStatistics(
       List<AggregateResult> aggregateResultList,
       boolean[] isCalculatedArray,
       int remainingToCalculate,
@@ -594,7 +594,7 @@ public class AggregationExecutor {
     return remainingToCalculate;
   }
 
-  private static int aggregateBatchData(
+  protected static int aggregateBatchData(
       List<AggregateResult> aggregateResultList,
       boolean[] isCalculatedArray,
       int remainingToCalculate,

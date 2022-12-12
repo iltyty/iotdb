@@ -23,6 +23,7 @@ import org.apache.iotdb.commons.cluster.NodeStatus;
 import org.apache.iotdb.commons.conf.IoTDBConstant;
 import org.apache.iotdb.commons.exception.IllegalPathException;
 import org.apache.iotdb.commons.path.PartialPath;
+import org.apache.iotdb.commons.udf.builtin.BuiltinPreAggregationFunction;
 import org.apache.iotdb.commons.utils.PathUtils;
 import org.apache.iotdb.db.conf.IoTDBConfig;
 import org.apache.iotdb.db.conf.IoTDBDescriptor;
@@ -63,29 +64,7 @@ import org.apache.iotdb.db.qp.constant.FilterConstant;
 import org.apache.iotdb.db.qp.constant.FilterConstant.FilterType;
 import org.apache.iotdb.db.qp.constant.SQLConstant;
 import org.apache.iotdb.db.qp.logical.Operator;
-import org.apache.iotdb.db.qp.logical.crud.AggregationQueryOperator;
-import org.apache.iotdb.db.qp.logical.crud.BasicFunctionOperator;
-import org.apache.iotdb.db.qp.logical.crud.DeleteDataOperator;
-import org.apache.iotdb.db.qp.logical.crud.FillClauseComponent;
-import org.apache.iotdb.db.qp.logical.crud.FillQueryOperator;
-import org.apache.iotdb.db.qp.logical.crud.FilterOperator;
-import org.apache.iotdb.db.qp.logical.crud.FromComponent;
-import org.apache.iotdb.db.qp.logical.crud.GroupByClauseComponent;
-import org.apache.iotdb.db.qp.logical.crud.GroupByFillClauseComponent;
-import org.apache.iotdb.db.qp.logical.crud.GroupByFillQueryOperator;
-import org.apache.iotdb.db.qp.logical.crud.GroupByQueryOperator;
-import org.apache.iotdb.db.qp.logical.crud.InOperator;
-import org.apache.iotdb.db.qp.logical.crud.InsertOperator;
-import org.apache.iotdb.db.qp.logical.crud.LastQueryOperator;
-import org.apache.iotdb.db.qp.logical.crud.LikeOperator;
-import org.apache.iotdb.db.qp.logical.crud.QueryOperator;
-import org.apache.iotdb.db.qp.logical.crud.RegexpOperator;
-import org.apache.iotdb.db.qp.logical.crud.SelectComponent;
-import org.apache.iotdb.db.qp.logical.crud.SelectIntoOperator;
-import org.apache.iotdb.db.qp.logical.crud.SpecialClauseComponent;
-import org.apache.iotdb.db.qp.logical.crud.UDAFQueryOperator;
-import org.apache.iotdb.db.qp.logical.crud.UDTFQueryOperator;
-import org.apache.iotdb.db.qp.logical.crud.WhereComponent;
+import org.apache.iotdb.db.qp.logical.crud.*;
 import org.apache.iotdb.db.qp.logical.sys.ActivateTemplateOperator;
 import org.apache.iotdb.db.qp.logical.sys.AlterTimeSeriesOperator;
 import org.apache.iotdb.db.qp.logical.sys.AlterTimeSeriesOperator.AlterType;
@@ -172,23 +151,13 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.apache.iotdb.db.metadata.MetadataConstant.ALL_RESULT_NODES;
-import static org.apache.iotdb.db.qp.constant.SQLConstant.TIME_PATH;
-import static org.apache.iotdb.db.qp.constant.SQLConstant.TOK_KILL_QUERY;
+import static org.apache.iotdb.db.qp.constant.SQLConstant.*;
 
 public class IoTDBSqlVisitor extends IoTDBSqlParserBaseVisitor<Operator> {
 
@@ -3017,7 +2986,18 @@ public class IoTDBSqlVisitor extends IoTDBSqlParserBaseVisitor<Operator> {
     // judge query type
     if (!hasDecidedQueryType()) {
       if (selectComponent.hasUserDefinedAggregationFunction()) {
-        queryOp = new UDAFQueryOperator(new AggregationQueryOperator(queryOp));
+        boolean isPreAggregation = false;
+        for (String func : selectComponent.getAggregationFunctions()) {
+          if (BuiltinPreAggregationFunction.getNativeFunctionNames().contains(func)) {
+            isPreAggregation = true;
+            break;
+          }
+        }
+        if (isPreAggregation) {
+          queryOp = new PreAggregationQueryOperator(queryOp);
+        } else {
+          queryOp = new UDAFQueryOperator(new AggregationQueryOperator(queryOp));
+        }
       } else if (selectComponent.hasPlainAggregationFunction()) {
         queryOp = new AggregationQueryOperator(queryOp);
       } else if (selectComponent.hasTimeSeriesGeneratingFunction()) {

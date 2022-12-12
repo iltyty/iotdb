@@ -2,7 +2,12 @@ package org.apache.iotdb.db.engine.preaggregation.rdbms;
 
 import org.apache.iotdb.db.engine.preaggregation.api.FileSeriesStat;
 import org.apache.iotdb.db.engine.preaggregation.api.SeriesStat;
+import org.apache.iotdb.db.engine.preaggregation.api.TsFileSeriesStat;
+import org.apache.iotdb.db.query.aggregation.AggregationType;
 import org.apache.iotdb.tsfile.read.common.Path;
+import org.apache.iotdb.tsfile.read.common.TimeRange;
+import org.apache.iotdb.tsfile.read.filter.basic.Filter;
+import org.apache.iotdb.tsfile.utils.Pair;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -292,5 +297,151 @@ public class RDBMS {
     } catch (SQLException e) {
       LOGGER.error("Error writing one chunk statistic to sqlite: ", e);
     }
+  }
+
+  public String getAggregateSQL(AggregationType aggregationType, Filter timeFilter) {
+    Map<AggregationType, Pair<String, String>> AGGREGATION_MAP =
+        new HashMap<AggregationType, Pair<String, String>>() {
+          {
+            put(AggregationType.PREAGG_COUNT, new Pair<>("COUNT", SeriesStat.cntField));
+            put(AggregationType.PREAGG_SUM, new Pair<>("SUM", SeriesStat.sumFiled));
+            put(AggregationType.PREAGG_MIN_VALUE, new Pair<>("MIN", SeriesStat.minValueField));
+            put(AggregationType.PREAGG_MAX_VALUE, new Pair<>("MAX", SeriesStat.maxValueField));
+          }
+        };
+    StringBuilder sqlBuilder = new StringBuilder();
+    sqlBuilder.append(
+        String.format(
+            "SELECT %s(%s) FROM %s NATURAL JOIN %s WHERE ts_path = ?",
+            AGGREGATION_MAP.get(aggregationType).left,
+            AGGREGATION_MAP.get(aggregationType).right,
+            SQLConstants.FILE_SERIES_STAT_TABLE_NAME,
+            SQLConstants.SERIES_TABLE_NAME));
+    if (timeFilter == null) {
+      return sqlBuilder.toString();
+    }
+    List<TimeRange> timeRangeList = timeFilter.getTimeRange();
+    if (timeRangeList != null && !timeRangeList.isEmpty()) {
+      sqlBuilder.append(" AND ");
+      StringJoiner sqlJoiner = new StringJoiner(" OR ");
+      for (TimeRange timeRange : timeRangeList) {
+        sqlJoiner.add(timeRange.getSQLString());
+      }
+      sqlBuilder.append(sqlJoiner.toString());
+    }
+    return sqlBuilder.toString();
+  }
+
+  public double aggregate(Path seriesPath, AggregationType aggregationType, Filter timeFilter) {
+    String sql = getAggregateSQL(aggregationType, timeFilter);
+    try (Connection conn = ds.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, seriesPath.getFullPath());
+      ResultSet rs = stmt.executeQuery();
+      while (rs.next()) {
+        return rs.getDouble(1);
+      }
+    } catch (SQLException e) {
+      LOGGER.error("Error executing: \"" + sql + "\"" + e.getMessage());
+    }
+    return 0;
+  }
+
+  public Filter getNewTimeFilter(Filter originTimeFilter, Path seriesPath) {
+    // TODO: consider when originTimeFilter is not of type TimeFilter
+    if (originTimeFilter == null) {
+      return null;
+    }
+    List<TimeRange> originTimeRangeList = originTimeFilter.getTimeRange();
+    String getRDBMSTimeRangeListSQL =
+        String.format(
+            "SELECT %s, %s FROM %s NATURAL JOIN %s WHERE ts_path=?",
+            SeriesStat.startTimestampField,
+            SeriesStat.endTimestampField,
+            SQLConstants.FILE_SERIES_STAT_TABLE_NAME,
+            SQLConstants.SERIES_TABLE_NAME);
+    try (Connection conn = ds.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(getRDBMSTimeRangeListSQL)) {
+      List<TimeRange> rdbmsTimeRangeList = new ArrayList<>();
+      stmt.setString(1, seriesPath.getFullPath());
+      ResultSet rs = stmt.executeQuery();
+      while (rs.next()) {
+        rdbmsTimeRangeList.add(new TimeRange(rs.getLong(1), rs.getLong(2)));
+      }
+      List<TimeRange> newTimeRangeList = TimeRange.getRemains(originTimeRangeList, rdbmsTimeRangeList);
+      return TimeRange.constructTimeFilter(newTimeRangeList);
+    } catch (SQLException e) {
+      LOGGER.error("Error getting new time filter for timeseries " + seriesPath.getFullPath());
+    }
+
+    return null;
+  }
+
+  public Map<String, TsFileSeriesStat> getAllStats(Path seriesPath) {
+    return getAllStats(seriesPath.getFullPath());
+  }
+
+  public Map<String, TsFileSeriesStat> getAllStats(String seriesPath) {
+    String readFileSeriesSQL =
+        String.format(
+            "SELECT * FROM %s NATURAL JOIN %s NATURAL JOIN "
+                + "(SELECT * FROM %s WHERE ts_path = ?)",
+            SQLConstants.FILE_TABLE_NAME,
+            SQLConstants.FILE_SERIES_STAT_TABLE_NAME,
+            SQLConstants.SERIES_TABLE_NAME);
+    String readChunkSeriesSQL =
+        String.format(
+            "SELECT * FROM %s NATURAL JOIN %s NATURAL JOIN "
+                + "(SELECT * FROM %s WHERE ts_path = ?) NATURAL JOIN "
+                + "(SELECT * FROM %s WHERE file_path = ?)",
+            SQLConstants.CHUNK_TABLE_NAME,
+            SQLConstants.CHUNK_SERIES_STAT_TABLE_NAME,
+            SQLConstants.SERIES_TABLE_NAME,
+            SQLConstants.FILE_TABLE_NAME);
+    String readPageSeriesSQL =
+        String.format(
+            "SELECT * FROM %s NATURAL JOIN %s NATURAL JOIN %s NATURAL JOIN "
+                + "(SELECT * FROM %s WHERE ts_path = ?) NATURAL JOIN "
+                + "(SELECT * FROM %s WHERE file_path = ?)",
+            SQLConstants.PAGE_TABLE_NAME,
+            SQLConstants.CHUNK_TABLE_NAME,
+            SQLConstants.PAGE_SERIES_STAT_TABLE_NAME,
+            SQLConstants.SERIES_TABLE_NAME,
+            SQLConstants.FILE_TABLE_NAME);
+    try (Connection conn = ds.getConnection();
+        PreparedStatement readFileSeriesStmt = conn.prepareStatement(readFileSeriesSQL);
+        PreparedStatement readChunkSeriesStmt = conn.prepareStatement(readChunkSeriesSQL);
+        PreparedStatement readPageSeriesStmt = conn.prepareStatement(readPageSeriesSQL)) {
+      Map<String, TsFileSeriesStat> res = new HashMap<>();
+
+      readFileSeriesStmt.setString(1, seriesPath);
+      ResultSet rs = readFileSeriesStmt.executeQuery();
+      while (rs.next()) {
+        TsFileSeriesStat stat = new TsFileSeriesStat();
+        stat.setFileStat(new SeriesStat(rs));
+        res.put(rs.getString("file_path"), stat);
+      }
+
+      for (Map.Entry<String, TsFileSeriesStat> entry : res.entrySet()) {
+        String filePath = entry.getKey();
+        readChunkSeriesStmt.setString(1, seriesPath);
+        readChunkSeriesStmt.setString(2, filePath);
+        rs = readChunkSeriesStmt.executeQuery();
+        while (rs.next()) {
+          entry.getValue().addToChunkStats(rs.getLong("offset"), new SeriesStat(rs));
+        }
+
+        readPageSeriesStmt.setString(1, seriesPath);
+        readPageSeriesStmt.setString(2, filePath);
+        rs = readPageSeriesStmt.executeQuery();
+        while (rs.next()) {
+          entry.getValue().addToPageStats(rs.getLong("offset"), new SeriesStat(rs));
+        }
+      }
+      return res;
+    } catch (SQLException e) {
+      LOGGER.error("Error getting all statistical information: " + e.getMessage());
+    }
+    return null;
   }
 }
