@@ -63,9 +63,9 @@ public class SQLConstants {
               + "    end_timestamp BIGINT NOT NULL,\n"
               + "    count BIGINT,\n"
               + "    sum DOUBLE,\n"
+              + "    square_sum DOUBLE,\n"
               + "    min_value DOUBLE, \n"
               + "    max_value DOUBLE,\n"
-              + "    square_sum DOUBLE,\n"
               + "    PRIMARY KEY(fid, sid),\n"
               + "    FOREIGN KEY (fid) REFERENCES %s(fid) ON DELETE CASCADE,\n"
               + "    FOREIGN KEY (sid) REFERENCES %s(sid) ON DELETE CASCADE\n"
@@ -93,9 +93,9 @@ public class SQLConstants {
               + "    end_timestamp BIGINT NOT NULL,\n"
               + "    count BIGINT,\n"
               + "    sum DOUBLE,\n"
+              + "    square_sum DOUBLE,\n"
               + "    min_value DOUBLE,\n"
               + "    max_value DOUBLE,\n"
-              + "    square_sum DOUBLE,\n"
               + "    FOREIGN KEY (pid) REFERENCES %s(pid) ON DELETE CASCADE\n"
               + ");",
           PAGE_SERIES_STAT_TABLE_NAME, PAGE_TABLE_NAME);
