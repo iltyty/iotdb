@@ -18,6 +18,7 @@
  */
 package org.apache.iotdb.tsfile.read.filter;
 
+import org.apache.iotdb.tsfile.common.StatField;
 import org.apache.iotdb.tsfile.read.common.TimeRange;
 import org.apache.iotdb.tsfile.read.filter.basic.Filter;
 import org.apache.iotdb.tsfile.read.filter.factory.FilterFactory;
@@ -233,6 +234,114 @@ public class OperatorTest {
     Filter andFilter5 = FilterFactory.and(andFilter3, TimeFilter.gt(1000));
     List<TimeRange> andTimeRangeList5 = andFilter5.getTimeRange();
     Assert.assertEquals(0, andTimeRangeList5.size());
+  }
+
+  @Test
+  public void testGetSQLString() {
+    // TimeFilter tests
+    Filter timeEqFilter = TimeFilter.eq(100L);
+    Assert.assertEquals(
+        String.format("(%s = 100 AND %s = 100)", StatField.START_TIMESTAMP, StatField.END_TIMESTAMP),
+        timeEqFilter.getSQLString());
+
+    Filter timeEqNotFilter = TimeFilter.notEq(100L);
+    Assert.assertEquals(
+        String.format("(%s < 100 OR %s > 100)", StatField.END_TIMESTAMP, StatField.START_TIMESTAMP),
+        timeEqNotFilter.getSQLString());
+
+    Filter timeLtFilter = TimeFilter.lt(100L);
+    Assert.assertEquals(
+        String.format("(%s < 100)", StatField.END_TIMESTAMP),
+        timeLtFilter.getSQLString());
+
+    Filter timeLtEqFilter = TimeFilter.ltEq(100L);
+    Assert.assertEquals(
+        String.format("(%s <= 100)", StatField.END_TIMESTAMP),
+        timeLtEqFilter.getSQLString());
+
+    Filter timeGtFilter = TimeFilter.gt(100L);
+    Assert.assertEquals(
+        String.format("(%s > 100)", StatField.START_TIMESTAMP),
+        timeGtFilter.getSQLString());
+
+    Filter timeGtEqFilter = TimeFilter.gtEq(100L);
+    Assert.assertEquals(
+        String.format("(%s >= 100)", StatField.START_TIMESTAMP),
+        timeGtEqFilter.getSQLString());
+
+    Filter timeInFilter = TimeFilter.in(new HashSet<Long>(Arrays.asList(100L, 200L)), false);
+    Assert.assertEquals(
+        String.format("(%s = 100 AND %s = 100) OR (%s = 200 AND %s = 200)",
+            StatField.START_TIMESTAMP, StatField.END_TIMESTAMP,
+            StatField.START_TIMESTAMP, StatField.END_TIMESTAMP),
+        timeInFilter.getSQLString());
+
+    Filter timeInNotFilter = TimeFilter.in(new HashSet<Long>(Arrays.asList(100L, 200L)), true);
+    Assert.assertEquals(
+        String.format("(%s < 100) OR (%s < 200 AND %s > 100) OR (%s > 200)",
+            StatField.END_TIMESTAMP, StatField.END_TIMESTAMP,
+            StatField.START_TIMESTAMP, StatField.START_TIMESTAMP),
+        timeInNotFilter.getSQLString());
+
+    Filter timeBetweenFilter = TimeFilter.between(100L, 200L, false);
+    Assert.assertEquals(
+        String.format("(%s <= 200 AND %s >= 100)", StatField.END_TIMESTAMP, StatField.START_TIMESTAMP),
+        timeBetweenFilter.getSQLString());
+
+    Filter timeBetweenNotFilter = TimeFilter.between(100L, 200L, true);
+    Assert.assertEquals(
+        String.format("(%s < 100 OR %s > 200)", StatField.END_TIMESTAMP, StatField.START_TIMESTAMP),
+        timeBetweenNotFilter.getSQLString());
+
+    Filter timeNotFilter = TimeFilter.not(timeBetweenNotFilter);
+    Assert.assertEquals(
+        String.format("NOT (%s < 100 OR %s > 200)", StatField.END_TIMESTAMP, StatField.START_TIMESTAMP),
+        timeNotFilter.getSQLString());
+
+    // ValueFilter tests
+    Filter valueEqFilter = ValueFilter.eq(100L);
+    Assert.assertEquals(
+        String.format("(%s = 100 AND %s = 100)", StatField.MIN_VALUE, StatField.MAX_VALUE),
+        valueEqFilter.getSQLString());
+
+    Filter valueEqNotFilter = ValueFilter.notEq(100L);
+    Assert.assertEquals(
+        String.format("(%s < 100 OR %s > 100)", StatField.MAX_VALUE, StatField.MIN_VALUE),
+        valueEqNotFilter.getSQLString());
+
+    Filter valueLtFilter = ValueFilter.lt(100L);
+    Assert.assertEquals(
+        String.format("(%s < 100)", StatField.MAX_VALUE),
+        valueLtFilter.getSQLString());
+
+    Filter valueLtEqFilter = ValueFilter.ltEq(100L);
+    Assert.assertEquals(
+        String.format("(%s <= 100)", StatField.MAX_VALUE),
+        valueLtEqFilter.getSQLString());
+
+    Filter valueGtFilter = ValueFilter.gt(100L);
+    Assert.assertEquals(
+        String.format("(%s > 100)", StatField.MIN_VALUE),
+        valueGtFilter.getSQLString());
+
+    Filter valueGtEqFilter = ValueFilter.gtEq(100L);
+    Assert.assertEquals(
+        String.format("(%s >= 100)", StatField.MIN_VALUE),
+        valueGtEqFilter.getSQLString());
+
+    Filter valueInFilter = ValueFilter.in(new HashSet<Long>(Arrays.asList(100L, 200L)), false);
+    Assert.assertEquals(
+        String.format("(%s = 100 AND %s = 100) OR (%s = 200 AND %s = 200)",
+            StatField.MIN_VALUE, StatField.MAX_VALUE,
+            StatField.MIN_VALUE, StatField.MAX_VALUE),
+        valueInFilter.getSQLString());
+
+    Filter valueInNotFilter = ValueFilter.in(new HashSet<Long>(Arrays.asList(100L, 200L)), true);
+    Assert.assertEquals(
+        String.format("(%s < 100) OR (%s < 200 AND %s > 100) OR (%s > 200)",
+            StatField.MAX_VALUE, StatField.MAX_VALUE,
+            StatField.MIN_VALUE, StatField.MIN_VALUE),
+        valueInNotFilter.getSQLString());
   }
 
   @Test

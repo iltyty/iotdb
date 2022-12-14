@@ -454,16 +454,16 @@ public class TimeRangeTest {
   @Test
   public void testGetSQLString() {
     Assert.assertEquals(
-        "start_timestamp >= -100 & end_timestamp <= 100",
+        "start_timestamp >= -100 AND end_timestamp <= 100",
         new TimeRange(-100L, 100L).getSQLString());
     Assert.assertEquals(
-        "start_timestamp >= -100 & end_timestamp < 100",
+        "start_timestamp >= -100 AND end_timestamp < 100",
         new TimeRange(-100L, 100L, true, false).getSQLString());
     Assert.assertEquals(
-        "start_timestamp > -100 & end_timestamp <= 100",
+        "start_timestamp > -100 AND end_timestamp <= 100",
         new TimeRange(-100L, 100L, false, true).getSQLString());
     Assert.assertEquals(
-        "start_timestamp > -100 & end_timestamp < 100",
+        "start_timestamp > -100 AND end_timestamp < 100",
         new TimeRange(-100L, 100L, false, false).getSQLString());
     Assert.assertEquals(
         "start_timestamp > 100", new TimeRange(100L, Long.MAX_VALUE, false, true).getSQLString());

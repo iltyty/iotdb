@@ -79,4 +79,8 @@ public interface Filter {
   default List<TimeRange> getTimeRange() {
     return null;
   }
+
+  default String getSQLString() {
+    return "";
+  }
 }

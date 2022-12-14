@@ -86,4 +86,9 @@ public class OrFilter extends BinaryFilter implements Serializable {
     }
     return TimeRange.getUnion(leftTimeRangeList, rightTimeRangeList);
   }
+
+  @Override
+  public String getSQLString() {
+    return left.getSQLString() + " OR " + right.getSQLString();
+  }
 }

@@ -335,8 +335,7 @@ public class TimeRange implements Comparable<TimeRange> {
     } else if (max == rhs.max) {
       rightClose &= rhs.rightClose;
     }
-    if (max < min ||
-        (max == min && (!leftClose || !rightClose))) {
+    if (max < min || (max == min && (!leftClose || !rightClose))) {
       throw new IllegalArgumentException("Invalid input!");
     }
   }
@@ -371,7 +370,7 @@ public class TimeRange implements Comparable<TimeRange> {
 
     for (TimeRange prev : timeRangesPrev) {
       // +2 is to keep consistent with the definition of `intersects` of two closed intervals
-      if (max<= Long.MAX_VALUE - 2 && prev.min >= max + 2) {
+      if (max <= Long.MAX_VALUE - 2 && prev.min >= max + 2) {
         // break early since timeRangesPrev is sorted
         break;
       }

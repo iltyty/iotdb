@@ -123,4 +123,9 @@ public class NotFilter implements Filter, Serializable {
     }
     return TimeRange.getComplement(thatTimeRangeList);
   }
+
+  @Override
+  public String getSQLString() {
+    return "NOT " + that.getSQLString();
+  }
 }

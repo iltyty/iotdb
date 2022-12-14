@@ -18,6 +18,7 @@
  */
 package org.apache.iotdb.tsfile.read.filter;
 
+import org.apache.iotdb.tsfile.common.StatField;
 import org.apache.iotdb.tsfile.read.filter.basic.Filter;
 import org.apache.iotdb.tsfile.read.filter.factory.FilterType;
 import org.apache.iotdb.tsfile.read.filter.operator.Eq;
@@ -32,7 +33,7 @@ import org.apache.iotdb.tsfile.read.filter.operator.NotFilter;
 import org.apache.iotdb.tsfile.read.filter.operator.Regexp;
 import org.apache.iotdb.tsfile.utils.TsPrimitiveType;
 
-import java.util.Set;
+import java.util.*;
 
 public class ValueFilter {
 
@@ -83,6 +84,41 @@ public class ValueFilter {
     private ValueIn(Set<T> values, boolean not) {
       super(values, FilterType.VALUE_FILTER, not);
     }
+
+    @Override
+    public String getSQLString() {
+      StringJoiner stringJoiner = new StringJoiner(" OR ");
+      if (!not) {
+        values.forEach(value -> stringJoiner.add(String.format(
+            "(%s = %d AND %s = %d)",
+            StatField.MIN_VALUE, value, StatField.MAX_VALUE, value)));
+        return stringJoiner.toString();
+      }
+
+      List<T> valueList = new ArrayList<T>(values);
+      Collections.sort(valueList);
+      int n = valueList.size();
+      for (int i = 0; i < n; i++) {
+        T curValue = valueList.get(i);
+        if (i == 0) {
+          stringJoiner.add(String.format(
+              "(%s < %d)",
+              StatField.MAX_VALUE, curValue));
+        }
+        if (i > 0) {
+          T preValue = valueList.get(i - 1);
+          stringJoiner.add(String.format(
+              "(%s < %d AND %s > %d)",
+              StatField.MAX_VALUE, curValue, StatField.MIN_VALUE, preValue));
+        }
+        if (i == n - 1) {
+          stringJoiner.add(String.format(
+              "(%s > %d)",
+              StatField.MIN_VALUE, curValue));
+        }
+      }
+      return stringJoiner.toString();
+    }
   }
 
   public static class VectorValueIn<T extends Comparable<T>> extends ValueIn<T> {
@@ -104,6 +140,13 @@ public class ValueFilter {
 
     private ValueEq(T value) {
       super(value, FilterType.VALUE_FILTER);
+    }
+
+    @Override
+    public String getSQLString() {
+      return String.format(
+          "(%s = %d AND %s = %d)",
+          StatField.MIN_VALUE, value, StatField.MAX_VALUE, value);
     }
   }
 
@@ -127,6 +170,13 @@ public class ValueFilter {
     private ValueGt(T value) {
       super(value, FilterType.VALUE_FILTER);
     }
+
+    @Override
+    public String getSQLString() {
+      return String.format(
+          "(%s > %d)",
+          StatField.MIN_VALUE, value);
+    }
   }
 
   public static class VectorValueGt<T extends Comparable<T>> extends ValueGt<T> {
@@ -148,6 +198,13 @@ public class ValueFilter {
 
     private ValueGtEq(T value) {
       super(value, FilterType.VALUE_FILTER);
+    }
+
+    @Override
+    public String getSQLString() {
+      return String.format(
+          "(%s >= %d)",
+          StatField.MIN_VALUE, value);
     }
   }
 
@@ -171,6 +228,13 @@ public class ValueFilter {
     private ValueLt(T value) {
       super(value, FilterType.VALUE_FILTER);
     }
+
+    @Override
+    public String getSQLString() {
+      return String.format(
+          "(%s < %d)",
+          StatField.MAX_VALUE, value);
+    }
   }
 
   public static class VectorValueLt<T extends Comparable<T>> extends ValueLt<T> {
@@ -192,6 +256,14 @@ public class ValueFilter {
 
     private ValueLtEq(T value) {
       super(value, FilterType.VALUE_FILTER);
+    }
+
+
+    @Override
+    public String getSQLString() {
+      return String.format(
+          "(%s <= %d)",
+          StatField.MAX_VALUE, value);
     }
   }
 
@@ -226,6 +298,13 @@ public class ValueFilter {
 
     private ValueNotEq(T value) {
       super(value, FilterType.VALUE_FILTER);
+    }
+
+    @Override
+    public String getSQLString() {
+      return String.format(
+          "(%s < %d OR %s > %d)",
+          StatField.MAX_VALUE, value, StatField.MIN_VALUE, value);
     }
   }
 

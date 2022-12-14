@@ -85,4 +85,9 @@ public class AndFilter extends BinaryFilter {
     }
     return TimeRange.getIntersection(leftTimeRangeList, rightTimeRangeList);
   }
+
+  @Override
+  public String getSQLString() {
+    return left.getSQLString() + " AND " + right.getSQLString();
+  }
 }

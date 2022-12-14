@@ -18,6 +18,7 @@
  */
 package org.apache.iotdb.tsfile.read.filter;
 
+import org.apache.iotdb.tsfile.common.StatField;
 import org.apache.iotdb.tsfile.read.common.TimeRange;
 import org.apache.iotdb.tsfile.read.filter.basic.Filter;
 import org.apache.iotdb.tsfile.read.filter.factory.FilterType;
@@ -90,6 +91,18 @@ public class TimeFilter {
       timeRange2.setLeftClose(false);
       return Arrays.asList(timeRange1, timeRange2);
     }
+
+    @Override
+    public String getSQLString() {
+      if (!not) {
+        return String.format(
+            "(%s <= %d AND %s >= %d)",
+            StatField.END_TIMESTAMP, value2, StatField.START_TIMESTAMP, value1);
+      }
+      return String.format(
+          "(%s < %d OR %s > %d)",
+          StatField.END_TIMESTAMP, value1, StatField.START_TIMESTAMP, value2);
+    }
   }
 
   public static class TimeIn extends In {
@@ -112,6 +125,41 @@ public class TimeFilter {
       }
       return TimeRange.getComplement(res);
     }
+
+    @Override
+    public String getSQLString() {
+      StringJoiner stringJoiner = new StringJoiner(" OR ");
+      if (!not) {
+        values.forEach(value -> stringJoiner.add(String.format(
+            "(%s = %d AND %s = %d)",
+            StatField.START_TIMESTAMP, value, StatField.END_TIMESTAMP, value)));
+        return stringJoiner.toString();
+      }
+
+      List<Long> valueList = new ArrayList<>(values);
+      Collections.sort(valueList);
+      int n = valueList.size();
+      for (int i = 0; i < n; i++) {
+        long curValue = valueList.get(i);
+        if (i == 0) {
+          stringJoiner.add(String.format(
+              "(%s < %d)",
+              StatField.END_TIMESTAMP, curValue));
+        }
+        if (i > 0) {
+          long preValue = valueList.get(i - 1);
+          stringJoiner.add(String.format(
+              "(%s < %d AND %s > %d)",
+              StatField.END_TIMESTAMP, curValue, StatField.START_TIMESTAMP, preValue));
+        }
+        if (i == n - 1) {
+          stringJoiner.add(String.format(
+              "(%s > %d)",
+              StatField.START_TIMESTAMP, curValue));
+        }
+      }
+      return stringJoiner.toString();
+    }
   }
 
   public static class TimeEq extends Eq {
@@ -123,6 +171,13 @@ public class TimeFilter {
     @Override
     public List<TimeRange> getTimeRange() {
       return Collections.singletonList(new TimeRange((long) value, (long) value));
+    }
+
+    @Override
+    public String getSQLString() {
+      return String.format(
+          "(%s = %d AND %s = %d)",
+          StatField.START_TIMESTAMP, value, StatField.END_TIMESTAMP, value);
     }
   }
 
@@ -140,6 +195,13 @@ public class TimeFilter {
       timeRange2.setLeftClose(false);
       return Arrays.asList(timeRange1, timeRange2);
     }
+
+    @Override
+    public String getSQLString() {
+      return String.format(
+          "(%s < %d OR %s > %d)",
+          StatField.END_TIMESTAMP, value, StatField.START_TIMESTAMP, value);
+    }
   }
 
   public static class TimeGt extends Gt {
@@ -154,6 +216,13 @@ public class TimeFilter {
       timeRange.setLeftClose(false);
       return Collections.singletonList(timeRange);
     }
+
+    @Override
+    public String getSQLString() {
+      return String.format(
+          "(%s > %d)",
+          StatField.START_TIMESTAMP, value);
+    }
   }
 
   public static class TimeGtEq extends GtEq {
@@ -166,6 +235,13 @@ public class TimeFilter {
     public List<TimeRange> getTimeRange() {
       TimeRange timeRange = new TimeRange((long) value, Long.MAX_VALUE);
       return Collections.singletonList(timeRange);
+    }
+
+    @Override
+    public String getSQLString() {
+      return String.format(
+          "(%s >= %d)",
+          StatField.START_TIMESTAMP, value);
     }
   }
 
@@ -181,6 +257,13 @@ public class TimeFilter {
       timeRange.setRightClose(false);
       return Collections.singletonList(timeRange);
     }
+
+    @Override
+    public String getSQLString() {
+      return String.format(
+          "(%s < %d)",
+          StatField.END_TIMESTAMP, value);
+    }
   }
 
   public static class TimeLtEq extends LtEq {
@@ -193,6 +276,13 @@ public class TimeFilter {
     public List<TimeRange> getTimeRange() {
       TimeRange timeRange = new TimeRange(Long.MIN_VALUE, (long) value);
       return Collections.singletonList(timeRange);
+    }
+
+    @Override
+    public String getSQLString() {
+      return String.format(
+          "(%s <= %d)",
+          StatField.END_TIMESTAMP, value);
     }
   }
 
