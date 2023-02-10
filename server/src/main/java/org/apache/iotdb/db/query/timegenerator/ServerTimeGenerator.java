@@ -63,6 +63,7 @@ public class ServerTimeGenerator extends TimeGenerator {
   protected RawDataQueryPlan queryPlan;
 
   private Filter timeFilter;
+  protected Filter fullFilter;
 
   public ServerTimeGenerator(QueryContext context) {
     this.context = context;
@@ -157,6 +158,7 @@ public class ServerTimeGenerator extends TimeGenerator {
               .getQueryDataSource(path, context, valueFilter, queryPlan.isAscending());
       // update valueFilter by TTL
       valueFilter = queryDataSource.updateFilterUsingTTL(valueFilter);
+      fullFilter = valueFilter;
     } catch (Exception e) {
       throw new IOException(e);
     }
@@ -204,5 +206,10 @@ public class ServerTimeGenerator extends TimeGenerator {
   @Override
   public Filter getTimeFilter() {
     return timeFilter;
+  }
+
+  @Override
+  public Filter getFullFilter() {
+    return fullFilter;
   }
 }

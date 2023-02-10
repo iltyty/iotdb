@@ -186,4 +186,8 @@ public class SeriesReaderByTimestamp implements IReaderByTimestamp {
   private boolean hasAvailableData(BatchData data, long time) {
     return ascending ? data.getMaxTimestamp() >= time : data.getMinTimestamp() <= time;
   }
+
+  public PartialPath getSeriesPath() {
+    return seriesReader.getSeriesPath();
+  }
 }

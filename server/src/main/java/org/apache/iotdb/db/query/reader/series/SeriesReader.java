@@ -1478,4 +1478,8 @@ public class SeriesReader {
   public Filter getValueFilter() {
     return valueFilter;
   }
+
+  public PartialPath getSeriesPath() {
+    return seriesPath;
+  }
 }

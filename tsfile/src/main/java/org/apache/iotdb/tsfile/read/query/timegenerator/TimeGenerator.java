@@ -135,4 +135,8 @@ public abstract class TimeGenerator {
   protected abstract boolean isAscending();
 
   public abstract Filter getTimeFilter();
+
+  public Filter getFullFilter() {
+    return null;
+  };
 }

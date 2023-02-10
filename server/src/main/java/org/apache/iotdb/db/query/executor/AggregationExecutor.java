@@ -44,6 +44,7 @@ import org.apache.iotdb.db.query.reader.series.IAggregateReader;
 import org.apache.iotdb.db.query.reader.series.IReaderByTimestamp;
 import org.apache.iotdb.db.query.reader.series.SeriesAggregateReader;
 import org.apache.iotdb.db.query.reader.series.SeriesReaderByTimestamp;
+import org.apache.iotdb.db.query.timegenerator.PreAggregateTimeGenerator;
 import org.apache.iotdb.db.query.timegenerator.ServerTimeGenerator;
 import org.apache.iotdb.db.utils.QueryUtils;
 import org.apache.iotdb.db.utils.ValueIterator;
@@ -79,7 +80,7 @@ public class AggregationExecutor {
 
   private static final Logger logger = LoggerFactory.getLogger(AggregationExecutor.class);
 
-  private List<PartialPath> selectedSeries;
+  protected List<PartialPath> selectedSeries;
   protected List<TSDataType> dataTypes;
   protected List<String> aggregations;
   protected IExpression expression;
@@ -682,7 +683,7 @@ public class AggregationExecutor {
     return constructDataSet(Arrays.asList(aggregateResultList), queryPlan);
   }
 
-  private void optimizeLastElementFunc(QueryPlan queryPlan) {
+  protected void optimizeLastElementFunc(QueryPlan queryPlan) {
     int index = 0;
     for (; index < aggregations.size(); index++) {
       String aggregationFunc = aggregations.get(index);
@@ -699,6 +700,9 @@ public class AggregationExecutor {
 
   protected TimeGenerator getTimeGenerator(QueryContext context, RawDataQueryPlan queryPlan)
       throws StorageEngineException {
+    if (this instanceof PreAggregationExecutor) {
+      return new PreAggregateTimeGenerator(context, queryPlan);
+    }
     return new ServerTimeGenerator(context, queryPlan);
   }
 
@@ -716,13 +720,22 @@ public class AggregationExecutor {
   }
 
   /** calculate aggregation result with value filter. */
-  private void aggregateWithValueFilter(
+  protected void aggregateWithValueFilter(
       TimeGenerator timestampGenerator,
       Map<IReaderByTimestamp, List<List<Integer>>> readerToAggrIndexesMap)
       throws IOException {
     List<Boolean> cached =
         markFilterdPaths(
             expression, new ArrayList<>(selectedSeries), timestampGenerator.hasOrNode());
+
+    if (this instanceof PreAggregationExecutor) {
+      long start = System.currentTimeMillis();
+      ((PreAggregationExecutor) this).aggregateFromRDBMS(
+          timestampGenerator.getFullFilter(),
+          readerToAggrIndexesMap);
+      long end = System.currentTimeMillis();
+      logger.info(String.format("RDBMS Time: %d", end-start));
+    }
 
     while (timestampGenerator.hasNext()) {
 

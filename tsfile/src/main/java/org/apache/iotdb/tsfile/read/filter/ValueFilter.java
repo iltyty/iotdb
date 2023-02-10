@@ -90,7 +90,7 @@ public class ValueFilter {
       StringJoiner stringJoiner = new StringJoiner(" OR ");
       if (!not) {
         values.forEach(value -> stringJoiner.add(String.format(
-            "(%s = %d AND %s = %d)",
+            "(%s = %f AND %s = %f)",
             StatField.MIN_VALUE, value, StatField.MAX_VALUE, value)));
         return stringJoiner.toString();
       }
@@ -102,18 +102,18 @@ public class ValueFilter {
         T curValue = valueList.get(i);
         if (i == 0) {
           stringJoiner.add(String.format(
-              "(%s < %d)",
+              "(%s < %f)",
               StatField.MAX_VALUE, curValue));
         }
         if (i > 0) {
           T preValue = valueList.get(i - 1);
           stringJoiner.add(String.format(
-              "(%s < %d AND %s > %d)",
+              "(%s < %f AND %s > %f)",
               StatField.MAX_VALUE, curValue, StatField.MIN_VALUE, preValue));
         }
         if (i == n - 1) {
           stringJoiner.add(String.format(
-              "(%s > %d)",
+              "(%s > %f)",
               StatField.MIN_VALUE, curValue));
         }
       }
@@ -145,7 +145,7 @@ public class ValueFilter {
     @Override
     public String getSQLString() {
       return String.format(
-          "(%s = %d AND %s = %d)",
+          "(%s = %f AND %s = %f)",
           StatField.MIN_VALUE, value, StatField.MAX_VALUE, value);
     }
   }
@@ -174,7 +174,7 @@ public class ValueFilter {
     @Override
     public String getSQLString() {
       return String.format(
-          "(%s > %d)",
+          "(%s > %f)",
           StatField.MIN_VALUE, value);
     }
   }
@@ -203,7 +203,7 @@ public class ValueFilter {
     @Override
     public String getSQLString() {
       return String.format(
-          "(%s >= %d)",
+          "(%s >= %f)",
           StatField.MIN_VALUE, value);
     }
   }
@@ -232,7 +232,7 @@ public class ValueFilter {
     @Override
     public String getSQLString() {
       return String.format(
-          "(%s < %d)",
+          "(%s < %f)",
           StatField.MAX_VALUE, value);
     }
   }
@@ -262,7 +262,7 @@ public class ValueFilter {
     @Override
     public String getSQLString() {
       return String.format(
-          "(%s <= %d)",
+          "(%s <= %f)",
           StatField.MAX_VALUE, value);
     }
   }
@@ -303,7 +303,7 @@ public class ValueFilter {
     @Override
     public String getSQLString() {
       return String.format(
-          "(%s < %d OR %s > %d)",
+          "(%s < %f OR %s > %f)",
           StatField.MAX_VALUE, value, StatField.MIN_VALUE, value);
     }
   }

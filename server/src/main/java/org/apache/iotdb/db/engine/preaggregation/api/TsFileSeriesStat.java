@@ -5,40 +5,29 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-// Used to store statistical information of one TsFile when querying.
+// Used to store used statistical information of one TsFile when querying.
 public class TsFileSeriesStat {
-  private SeriesStat fileStat;
-  private Map<Long, SeriesStat> chunkStats; // key: chunk offset
-  private Map<Long, List<SeriesStat>> pageStats;
+  private boolean fileStatUsed;
+  private Map<Long, Boolean> chunkStatsUsed;
 
   public TsFileSeriesStat() {
-    fileStat = new SeriesStat();
-    chunkStats = new HashMap<>();
-    pageStats = new HashMap<>();
+    fileStatUsed = false;
+    chunkStatsUsed = new HashMap<>();
   }
 
-  public SeriesStat getFileStat() {
-    return fileStat;
+  public boolean getFileStatUsed() {
+    return fileStatUsed;
   }
 
-  public Map<Long, SeriesStat> getChunkStats() {
-    return chunkStats;
+  public Map<Long, Boolean> getChunkStatsUsed() {
+    return chunkStatsUsed;
   }
 
-  public Map<Long, List<SeriesStat>> getPageStats() {
-    return pageStats;
+  public void setFileStatUsed(boolean fileStatUsed) {
+    this.fileStatUsed = fileStatUsed;
   }
 
-  public void setFileStat(SeriesStat fileStat) {
-    this.fileStat = fileStat;
-  }
-
-  public void addToChunkStats(Long offset, SeriesStat stat) {
-    chunkStats.put(offset, stat);
-  }
-
-  public void addToPageStats(Long offset, SeriesStat stat) {
-    pageStats.putIfAbsent(offset, new ArrayList<>());
-    pageStats.get(offset).add(stat);
+  public void setChunkStatsUsed(long chunkOffset, boolean isUsed) {
+    chunkStatsUsed.put(chunkOffset, isUsed);
   }
 }
