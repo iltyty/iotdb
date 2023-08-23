@@ -44,39 +44,12 @@ public class PreAggregationTask implements Runnable {
       Collection<Modification> allModifications =
           new TsFileResource(new File(tsFilePath)).getModFile().getModifications();
       try {
-        scanOneTsFile(tsFilePath, allModifications);
+        PreAggregationUtil.scanOneTsFile(tsFilePath, allModifications);
       } catch (IOException e) {
         e.printStackTrace();
         LOGGER.error(e.getMessage());
       }
     }
-  }
-
-  public void scanOneTsFile(String tsFilePath, Collection<Modification> allModifications)
-      throws IOException {
-    TsFileSequenceReader reader = new TsFileSequenceReader(tsFilePath);
-    List<Path> seriesPaths = reader.getAllPaths();
-    for (Path seriesPath : seriesPaths) {
-      FileSeriesStat fileSeriesStat = new FileSeriesStat(seriesPath, tsFilePath);
-      List<Pair<Long, IChunkReader>> chunkOffsetReaderPairs =
-          PreAggregationUtil.getChunkReaders(seriesPath, reader, allModifications);
-      if (chunkOffsetReaderPairs.isEmpty()) {
-        return;
-      }
-
-      for (Pair<Long, IChunkReader> pair : chunkOffsetReaderPairs) {
-        fileSeriesStat.setCurrentChunkOffset(pair.left);
-        fileSeriesStat.startNewChunk();
-        List<IPageReader> pageReaders = pair.right.loadPageReaderList();
-
-        for (IPageReader pageReader : pageReaders) {
-          BatchData batchData = pageReader.getAllSatisfiedPageData();
-          SeriesStat stat = new SeriesStat(batchData);
-          fileSeriesStat.addPageSeriesStat(stat);
-        }
-        fileSeriesStat.endChunk();
-      }
-      fileSeriesStat.endFile();
-    }
+    LOGGER.info("Pre-Aggregation calculation finished.");
   }
 }

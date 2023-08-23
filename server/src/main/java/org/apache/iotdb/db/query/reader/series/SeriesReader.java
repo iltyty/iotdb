@@ -1142,7 +1142,7 @@ public class SeriesReader {
     return timeFilter;
   }
 
-  private class VersionPageReader {
+  protected class VersionPageReader {
 
     protected PriorityMergeReader.MergeReaderPriority version;
     protected IPageReader data;

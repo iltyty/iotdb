@@ -32,6 +32,7 @@ public class SeriesPreAggregateReader extends SeriesReader implements ManagedSer
   private boolean hasCachedBatchData = false;
 
   public SeriesPreAggregateReader(
+      Map<String, TsFileSeriesStat> tsFileSeriesStatMap,
       PartialPath seriesPath,
       Set<String> allSensors,
       TSDataType dataType,
@@ -51,9 +52,7 @@ public class SeriesPreAggregateReader extends SeriesReader implements ManagedSer
         valueFilter,
         fileFilter,
         ascending);
-    tsFileSeriesStats = DB.getStatsUsed(
-        seriesPath,
-        valueFilter != null ? valueFilter : timeFilter);
+    tsFileSeriesStats = tsFileSeriesStatMap;
   }
 
   @Override
@@ -100,18 +99,6 @@ public class SeriesPreAggregateReader extends SeriesReader implements ManagedSer
     }
   }
 
-  private boolean containedByTimeFilter(Statistics statistics) {
-    Filter timeFilter = getTimeFilter();
-    return timeFilter == null
-        || timeFilter.containStartEndTime(statistics.getStartTime(), statistics.getEndTime());
-  }
-
-  public boolean canUseCurrentFileStatistics() throws IOException {
-    return !isFileOverlapped()
-        && containedByTimeFilter(currentFileStatistics())
-        && tsFileSeriesStats.get(currentTsFilePath) != null;
-  }
-
   @Override
   public boolean hasNextChunk() throws IOException {
     return super.hasNextChunk();
@@ -124,16 +111,6 @@ public class SeriesPreAggregateReader extends SeriesReader implements ManagedSer
 
   public boolean hasNextPage() throws IOException {
     return super.hasNextPage();
-  }
-
-  public boolean canUseCurrentPageStatistics() throws IOException {
-    Statistics currentPageStatistics = currentPageStatistics();
-    if (currentPageStatistics == null) {
-      return false;
-    }
-    return !isPageOverlapped()
-        && containedByTimeFilter(currentPageStatistics)
-        && !currentPageModified();
   }
 
   public Statistics currentPageStatistics() {
@@ -150,7 +127,7 @@ public class SeriesPreAggregateReader extends SeriesReader implements ManagedSer
 
   public boolean isCurrentFileCalculated() {
     return tsFileSeriesStats.get(currentTsFilePath) != null
-        && tsFileSeriesStats.get(currentTsFilePath).getFileStatUsed();
+        && tsFileSeriesStats.get(currentTsFilePath).getFileStat() != null;
   }
 
   public boolean isCurrentChunkCalculated() {
@@ -158,13 +135,29 @@ public class SeriesPreAggregateReader extends SeriesReader implements ManagedSer
     if (tsFileSeriesStat == null) {
       return false;
     }
-    Map<Long, Boolean> chunkStatsUsed = tsFileSeriesStat.getChunkStatsUsed();
-    if (chunkStatsUsed == null) {
+    Map<Long, SeriesStat> chunkStats = tsFileSeriesStat.getChunkStats();
+    if (chunkStats == null) {
       return false;
     }
     long offset = firstChunkMetadata.getOffsetOfChunkHeader();
-    return chunkStatsUsed.get(offset) != null
-        && chunkStatsUsed.get(offset);
+    return chunkStats.get(offset) != null;
+  }
+
+  public boolean isCurrentPageCalculated() {
+    if (firstPageReader == null || firstChunkMetadata == null) {
+      return false;
+    }
+    TsFileSeriesStat tsFileSeriesStat = tsFileSeriesStats.get(currentTsFilePath);
+    if (tsFileSeriesStat == null) {
+      return false;
+    }
+    long offset = firstChunkMetadata.getOffsetOfChunkHeader();
+    Map<Long, Map<Long, SeriesStat>> pageStats = tsFileSeriesStat.getPageStats();
+    if (pageStats.get(offset) == null) {
+      return false;
+    }
+    long pageStartTimestamp = firstPageReader.getStatistics().getStartTime();
+    return pageStats.get(offset).get(pageStartTimestamp) != null;
   }
 
   @Override
@@ -229,6 +222,10 @@ public class SeriesPreAggregateReader extends SeriesReader implements ManagedSer
 
   private boolean readPageData() throws IOException {
     while (hasNextPage()) {
+      if (isCurrentPageCalculated()) {
+        skipCurrentPage();
+        continue;
+      }
       batchData = nextPage();
       if (batchData != null && batchData.hasCurrent()) {
         return true;

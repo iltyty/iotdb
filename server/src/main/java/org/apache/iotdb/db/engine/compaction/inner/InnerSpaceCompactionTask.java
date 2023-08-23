@@ -26,6 +26,10 @@ import org.apache.iotdb.db.engine.compaction.CompactionUtils;
 import org.apache.iotdb.db.engine.compaction.log.CompactionLogger;
 import org.apache.iotdb.db.engine.compaction.performer.ICompactionPerformer;
 import org.apache.iotdb.db.engine.compaction.task.AbstractCompactionTask;
+import org.apache.iotdb.db.engine.preaggregation.scheduler.PreAggregationTaskPoolManager;
+import org.apache.iotdb.db.engine.preaggregation.task.MultipleTsFileDeleteTask;
+import org.apache.iotdb.db.engine.preaggregation.task.TsFileDeleteTask;
+import org.apache.iotdb.db.engine.preaggregation.task.TsFileUpdateTask;
 import org.apache.iotdb.db.engine.storagegroup.TsFileManager;
 import org.apache.iotdb.db.engine.storagegroup.TsFileNameGenerator;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
@@ -202,6 +206,14 @@ public class InnerSpaceCompactionTask extends AbstractCompactionTask {
           "{}-{} [Compaction] compaction finish, start to delete old files",
           storageGroupName,
           dataRegionId);
+
+      // delete old pre-aggregation information
+      PreAggregationTaskPoolManager.getInstance().submit(
+          new MultipleTsFileDeleteTask(selectedTsFileResourceList));
+      // update new pre-aggregation information
+      PreAggregationTaskPoolManager.getInstance().submit(
+          new TsFileUpdateTask(targetTsFileResource.getTsFile().getAbsolutePath()));
+
       // delete the old files
       CompactionUtils.deleteTsFilesInDisk(
           selectedTsFileResourceList, storageGroupName + "-" + dataRegionId);

@@ -26,6 +26,9 @@ import org.apache.iotdb.db.engine.compaction.CompactionUtils;
 import org.apache.iotdb.db.engine.compaction.log.CompactionLogger;
 import org.apache.iotdb.db.engine.compaction.performer.ICrossCompactionPerformer;
 import org.apache.iotdb.db.engine.compaction.task.AbstractCompactionTask;
+import org.apache.iotdb.db.engine.preaggregation.scheduler.PreAggregationTaskPoolManager;
+import org.apache.iotdb.db.engine.preaggregation.task.MultipleTsFileDeleteTask;
+import org.apache.iotdb.db.engine.preaggregation.task.TsFileUpdateTask;
 import org.apache.iotdb.db.engine.storagegroup.TsFileManager;
 import org.apache.iotdb.db.engine.storagegroup.TsFileNameGenerator;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
@@ -182,6 +185,17 @@ public class CrossSpaceCompactionTask extends AbstractCompactionTask {
         }
 
         CompactionUtils.deleteCompactionModsFile(selectedSequenceFiles, selectedUnsequenceFiles);
+
+        // delete old pre-aggregation information
+        PreAggregationTaskPoolManager.getInstance().submit(
+            new MultipleTsFileDeleteTask(selectedSequenceFiles));
+        PreAggregationTaskPoolManager.getInstance().submit(
+            new MultipleTsFileDeleteTask(selectedUnsequenceFiles));
+        // update new pre-aggregation information
+        for (TsFileResource targetResource : targetTsfileResourceList) {
+          PreAggregationTaskPoolManager.getInstance().submit(
+              new TsFileUpdateTask(targetResource.getTsFile().getAbsolutePath()));
+        }
 
         if (logFile.exists()) {
           FileUtils.delete(logFile);

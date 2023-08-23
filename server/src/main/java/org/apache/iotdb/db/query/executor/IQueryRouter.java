@@ -18,6 +18,7 @@
  */
 package org.apache.iotdb.db.query.executor;
 
+import org.apache.iotdb.db.engine.preaggregation.exception.UnsupportedAggregationTypeException;
 import org.apache.iotdb.db.exception.StorageEngineException;
 import org.apache.iotdb.db.exception.query.QueryProcessException;
 import org.apache.iotdb.db.qp.physical.crud.AggregationPlan;

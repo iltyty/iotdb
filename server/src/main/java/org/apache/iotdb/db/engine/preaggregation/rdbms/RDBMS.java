@@ -4,6 +4,7 @@ import org.apache.iotdb.commons.path.PartialPath;
 import org.apache.iotdb.db.engine.preaggregation.api.FileSeriesStat;
 import org.apache.iotdb.db.engine.preaggregation.api.SeriesStat;
 import org.apache.iotdb.db.engine.preaggregation.api.TsFileSeriesStat;
+import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
 import org.apache.iotdb.db.query.aggregation.AggregationType;
 import org.apache.iotdb.tsfile.read.common.Path;
 import org.apache.iotdb.tsfile.read.filter.basic.Filter;
@@ -18,6 +19,7 @@ import javax.sql.DataSource;
 
 import java.sql.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class RDBMS {
   private final Logger LOGGER = LoggerFactory.getLogger(RDBMS.class);
@@ -288,94 +290,41 @@ public class RDBMS {
     }
   }
 
-  public Pair<Double, Set<String>> aggregateFileLevelStats(
-      PartialPath seriesPath,
-      AggregationType aggregationType,
-      Filter filter) {
-    return aggregateFileLevelStats(seriesPath.getFullPath(), aggregationType, filter);
+  public void deleteAccordingToTsFileResources(List<TsFileResource> tsFileResources) {
+    deleteAccordingToTsFilePaths(tsFileResources
+        .stream()
+        .map(x -> x.getTsFile().getAbsolutePath())
+        .collect(Collectors.toList()));
   }
 
-  public Pair<Double, Set<String>> aggregateFileLevelStats(
-      String seriesPath,
-      AggregationType aggregationType,
-      Filter filter) {
-    double aggrResult;
-    Set<String> filePaths = new HashSet<>();
-    String readSQL = getReadFileSeriesSQL(filter);
-    String aggrSQL = getAggregateFileSeriesStatsSQL(aggregationType, filter);
-    try (Connection conn = ds.getConnection();
-         PreparedStatement readStmt = conn.prepareStatement(readSQL)) {
-      readStmt.setString(1, seriesPath);
-      ResultSet rs = readStmt.executeQuery();
-      while (rs.next()) {
-        filePaths.add(rs.getString("file_path"));
-      }
-      if (filePaths.isEmpty()) {
-        // no file-level statistic aggregated
-        return null;
-      }
-
-      try (PreparedStatement aggrStmt = conn.prepareStatement(aggrSQL)) {
-        aggrStmt.setString(1, seriesPath);
-        rs = aggrStmt.executeQuery();
-        if (rs.next()) {
-          aggrResult = rs.getDouble(1);
-          return new Pair<>(aggrResult, filePaths);
-        }
-      }
-    } catch (SQLException e) {
-      LOGGER.error("Error executing: \"" + aggrSQL + "\"" + e.getMessage());
-    }
-    return null;
-  }
-
-  public Double aggregateChunkLevelStats(
-      Set<String> filePaths,
-      PartialPath seriesPath,
-      AggregationType aggregationType,
-      Filter filter
-  ) {
-    return aggregateChunkLevelStats(
-        filePaths,
-        seriesPath.getFullPath(),
-        aggregationType,
-        filter);
-  }
-
-  public Double aggregateChunkLevelStats(
-      Set<String> filePaths,
-      String seriesPath,
-      AggregationType aggregationType,
-      Filter filter
-  ) {
-    String sql = getAggregateChunkSeriesStatsSQL(filePaths, aggregationType, filter);
+  public void deleteAccordingToTsFilePaths(List<String> tsFilePaths) {
+    int n = tsFilePaths.size();
+    String sql =
+        String.format(
+            "DELETE FROM %s WHERE file_path IN (%s)",
+            SQLConstants.FILE_TABLE_NAME,
+            String.join(",", Collections.nCopies(n, "?")));
     try (Connection conn = ds.getConnection();
         PreparedStatement stmt = conn.prepareStatement(sql)) {
-      stmt.setString(1, seriesPath);
-      if (filePaths != null && !filePaths.isEmpty()) {
-        int i = 2;
-        for (String filePath : filePaths) {
-          stmt.setString(i++, filePath);
-        }
+      for (int i = 1; i <= n; i++) {
+        stmt.setString(i, tsFilePaths.get(i-1));
       }
-      ResultSet rs = stmt.executeQuery();
-      if (rs.next()) {
-        return rs.getDouble(1);
-      }
+      stmt.executeUpdate();
     } catch (SQLException e) {
-      LOGGER.error("Error aggregating chunk-level statistics: " + e.getMessage());
+      LOGGER.error("Delete files error: ", e);
     }
-    return null;
   }
 
-  public Pair<Double, Double> aggregate(PartialPath seriesPath, AggregationType aggregationType, Filter filter) {
-    Pair<Double, Set<String>> fileRes = aggregateFileLevelStats(seriesPath, aggregationType, filter);
-    Double chunkRes = aggregateChunkLevelStats(
-        fileRes == null ? null : fileRes.right,
-        seriesPath,
-        aggregationType,
-        filter);
-    return new Pair<>(fileRes != null ? fileRes.left : null, chunkRes);
+  public void deleteFromFileTable(String tsFilePath) {
+    String sql =
+        String.format("DELETE FROM %s WHERE file_path=?", SQLConstants.FILE_TABLE_NAME);
+    try (Connection conn = ds.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, tsFilePath);
+      stmt.executeUpdate();
+    } catch (SQLException e) {
+      LOGGER.error("Delete file error: ", e);
+    }
   }
 
   public String getReadFileSeriesSQL(Filter filter) {
@@ -389,13 +338,11 @@ public class RDBMS {
         filter == null ? "" : "WHERE " + filter.getSQLString());
   }
 
-  public String getAggregateFileSeriesStatsSQL(AggregationType aggregationType, Filter filter) {
+  public String getAggregateFileSeriesStatsSQL(Filter filter) {
     return String.format(
-        "SELECT %s(%s) FROM %s NATURAL JOIN "
+        "SELECT * FROM %s NATURAL JOIN "
             + "(SELECT sid FROM %s WHERE ts_path = ?) NATURAL JOIN "
             + "(SELECT * FROM %s %s)",
-        AGGREGATION_MAP.get(aggregationType).left,
-        AGGREGATION_MAP.get(aggregationType).right,
         SQLConstants.FILE_TABLE_NAME,
         SQLConstants.SERIES_TABLE_NAME,
         SQLConstants.FILE_SERIES_STAT_TABLE_NAME,
@@ -417,32 +364,184 @@ public class RDBMS {
     }
 
     String fileSQL = String.format("(%s)", String.join(",", Collections.nCopies(filePaths.size(), "?")));
-    return String.format("%s NATURAL JOIN %s WHERE file_path NOT IN %s",
+    return String.format("%s NATURAL JOIN (SELECT * FROM %s WHERE file_path NOT IN %s)",
         baseSQL, SQLConstants.FILE_TABLE_NAME, fileSQL);
   }
 
   public String getAggregateChunkSeriesStatsSQL(
       Set<String> filePaths,
-      AggregationType aggregationType,
       Filter filter) {
     String baseSQL = String.format(
-        "SELECT %s(%s) FROM %s NATURAL JOIN "
-            + "(SELECT * FROM %s %s) NATURAL JOIN "
-            + "(SELECT sid FROM %s WHERE ts_path = ?)",
-        AGGREGATION_MAP.get(aggregationType).left,
-        AGGREGATION_MAP.get(aggregationType).right,
+        "SELECT * FROM %s NATURAL JOIN "
+            + "(SELECT sid FROM %s WHERE ts_path = ?) NATURAL JOIN "
+            + "(SELECT * FROM %s %s)",
         SQLConstants.CHUNK_TABLE_NAME,
+        SQLConstants.SERIES_TABLE_NAME,
         SQLConstants.CHUNK_SERIES_STAT_TABLE_NAME,
-        filter == null ? "" : "WHERE " + filter.getSQLString(),
-        SQLConstants.SERIES_TABLE_NAME);
+        filter == null ? "" : "WHERE " + filter.getSQLString());
 
     if (filePaths == null || filePaths.isEmpty()) {
       return baseSQL + String.format(" NATURAL JOIN (SELECT * FROM %s)", SQLConstants.FILE_TABLE_NAME);
     }
 
     String fileSQL = String.format("(%s)", String.join(",", Collections.nCopies(filePaths.size(), "?")));
-    return String.format("%s NATURAL JOIN %s WHERE file_path NOT IN %s",
+    return String.format("%s NATURAL JOIN (SELECT * FROM %s WHERE file_path NOT IN %s)",
         baseSQL, SQLConstants.FILE_TABLE_NAME, fileSQL);
+  }
+
+  public String getAggregatePageSeriesStatsSQL(
+      Set<String> filePaths,
+      Set<Integer> chunkIDs,
+      Filter filter) {
+    String baseSQL = String.format(
+        "SELECT * FROM %s NATURAL JOIN"
+            + "(SELECT sid FROM %s WHERE ts_path=?) NATURAL JOIN "
+            + "(SELECT * FROM %s %s)",
+        SQLConstants.PAGE_TABLE_NAME,
+        SQLConstants.SERIES_TABLE_NAME,
+        SQLConstants.PAGE_SERIES_STAT_TABLE_NAME,
+        filter == null ? "" : "WHERE " + filter.getSQLString());
+
+    String fileSQL, chunkSQL;
+    if (filePaths != null && !filePaths.isEmpty()) {
+      fileSQL = String.format("(%s)", String.join(",", Collections.nCopies(filePaths.size(), "?")));
+      baseSQL += String.format(" NATURAL JOIN (SELECT * FROM %s WHERE file_path NOT IN %s)",
+          SQLConstants.FILE_TABLE_NAME, fileSQL);
+    } else {
+      baseSQL += String.format(" NATURAL JOIN (SELECT * FROM %s)", SQLConstants.FILE_TABLE_NAME);
+    }
+    if (chunkIDs != null && !chunkIDs.isEmpty()) {
+      chunkSQL = String.format("(%s)", String.join(",", Collections.nCopies(chunkIDs.size(), "?")));
+      baseSQL += String.format(" WHERE cid NOT IN %s", chunkSQL);
+    }
+    return baseSQL;
+  }
+
+  public Set<String> aggregateFileLevelStats(
+      PartialPath seriesPath,
+      Filter filter,
+      Map<String, TsFileSeriesStat> tsFileSeriesStatMap) {
+    return aggregateFileLevelStats(seriesPath.getFullPath(), filter, tsFileSeriesStatMap);
+  }
+
+  public Set<String> aggregateFileLevelStats(
+      String seriesPath,
+      Filter filter,
+      Map<String, TsFileSeriesStat> tsFileSeriesStatMap) {
+    Set<String> filePaths = new HashSet<>();
+    String sql = getAggregateFileSeriesStatsSQL(filter);
+    try (Connection conn = ds.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, seriesPath);
+      ResultSet rs = stmt.executeQuery();
+      while (rs.next()) {
+        String filePath = rs.getString("file_path");
+        filePaths.add(filePath);
+        TsFileSeriesStat stat = new TsFileSeriesStat();
+        stat.setFileStat(new SeriesStat(rs));
+        tsFileSeriesStatMap.put(filePath, stat);
+      }
+      return filePaths;
+    } catch (SQLException e) {
+      LOGGER.error("Error executing: \"" + sql + "\"" + e.getMessage());
+    }
+    return null;
+  }
+
+  public Set<Integer> aggregateChunkLevelStats(
+      Set<String> filePaths,
+      PartialPath seriesPath,
+      Filter filter,
+      Map<String, TsFileSeriesStat> tsFileSeriesStatMap) {
+    return aggregateChunkLevelStats(
+        filePaths,
+        seriesPath.getFullPath(),
+        filter,
+        tsFileSeriesStatMap);
+  }
+
+  public Set<Integer> aggregateChunkLevelStats(
+      Set<String> filePaths,
+      String seriesPath,
+      Filter filter,
+      Map<String, TsFileSeriesStat> tsFileSeriesStatMap) {
+    Set<Integer> chunkIDs = new HashSet<>();
+    String sql = getAggregateChunkSeriesStatsSQL(filePaths, filter);
+    try (Connection conn = ds.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, seriesPath);
+      if (filePaths != null && !filePaths.isEmpty()) {
+        int i = 2;
+        for (String filePath : filePaths) {
+          stmt.setString(i++, filePath);
+        }
+      }
+      ResultSet rs = stmt.executeQuery();
+      while (rs.next()) {
+        long offset = rs.getLong("offset");
+        String filePath = rs.getString("file_path");
+        chunkIDs.add(rs.getInt("cid"));
+        TsFileSeriesStat tsFileSeriesStat = new TsFileSeriesStat();
+        tsFileSeriesStat.setChunkStats(offset, new SeriesStat(rs));
+        tsFileSeriesStatMap.put(filePath, tsFileSeriesStat);
+      }
+      return chunkIDs;
+    } catch (SQLException e) {
+      LOGGER.error("Error aggregating chunk-level statistics: " + e.getMessage());
+    }
+    return null;
+  }
+
+  public void aggregatePageLevelStats(
+      Set<String> filePaths,
+      Set<Integer> chunkIDs,
+      PartialPath seriesPath,
+      Filter filter,
+      Map<String, TsFileSeriesStat> tsFileSeriesStatMap) {
+    aggregatePageLevelStats(filePaths, chunkIDs, seriesPath.getFullPath(), filter, tsFileSeriesStatMap);
+  }
+
+  public void aggregatePageLevelStats(
+      Set<String> filePaths,
+      Set<Integer> chunkIDs,
+      String seriesPath,
+      Filter filter,
+      Map<String, TsFileSeriesStat> tsFileSeriesStatMap) {
+    String sql = getAggregatePageSeriesStatsSQL(filePaths, chunkIDs, filter);
+    try (Connection conn = ds.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, seriesPath);
+      int i = 2;
+      if (filePaths != null && !filePaths.isEmpty()) {
+        for (String filePath : filePaths) {
+          stmt.setString(i++, filePath);
+        }
+      }
+      if (chunkIDs != null && !chunkIDs.isEmpty()) {
+        for (int chunkID : chunkIDs) {
+          stmt.setInt(i++, chunkID);
+        }
+      }
+      ResultSet rs = stmt.executeQuery();
+      while (rs.next()) {
+        long offset = rs.getLong("offset");
+        long timestamp = rs.getLong("start_timestamp");
+        String filePath = rs.getString("file_path");
+        TsFileSeriesStat tsFileSeriesStat = new TsFileSeriesStat();
+        tsFileSeriesStat.setPageStats(offset, timestamp, new SeriesStat(rs));
+        tsFileSeriesStatMap.put(filePath, tsFileSeriesStat);
+      }
+    } catch (SQLException e) {
+      LOGGER.error("Error aggregating page-level statistics: " + e.getMessage());
+    }
+  }
+
+  public Map<String, TsFileSeriesStat> aggregate(PartialPath seriesPath, Filter filter) {
+    Map<String, TsFileSeriesStat> tsFileSeriesStatMap = new HashMap<>();
+    Set<String> filePaths = aggregateFileLevelStats(seriesPath, filter, tsFileSeriesStatMap);
+    Set<Integer> chunkIDs = aggregateChunkLevelStats(filePaths, seriesPath, filter, tsFileSeriesStatMap);
+    aggregatePageLevelStats(filePaths, chunkIDs, seriesPath, filter, tsFileSeriesStatMap);
+    return tsFileSeriesStatMap;
   }
 
   public Map<String, TsFileSeriesStat> getStatsUsed(PartialPath seriesPath, Filter filter) {
@@ -459,7 +558,6 @@ public class RDBMS {
       ResultSet rs = readFileSeriesStmt.executeQuery();
       while (rs.next()) {
         TsFileSeriesStat stat = new TsFileSeriesStat();
-        stat.setFileStatUsed(true);
         res.put(rs.getString("file_path"), stat);
       }
 
@@ -475,7 +573,7 @@ public class RDBMS {
         while (rs.next()) {
           String filePath = rs.getString("file_path");
           res.computeIfAbsent(filePath, x -> new TsFileSeriesStat());
-          res.get(filePath).setChunkStatsUsed(rs.getLong("offset"), true);
+          res.get(filePath).setChunkStats(rs.getLong("offset"), new SeriesStat(rs));
         }
         return res;
       }

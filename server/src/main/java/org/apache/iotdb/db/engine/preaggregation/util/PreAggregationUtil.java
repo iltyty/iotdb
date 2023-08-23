@@ -2,13 +2,17 @@ package org.apache.iotdb.db.engine.preaggregation.util;
 
 import org.apache.iotdb.commons.path.PartialPath;
 import org.apache.iotdb.db.engine.modification.Modification;
+import org.apache.iotdb.db.engine.preaggregation.api.FileSeriesStat;
+import org.apache.iotdb.db.engine.preaggregation.api.SeriesStat;
 import org.apache.iotdb.db.engine.storagegroup.TsFileResource;
 import org.apache.iotdb.db.utils.QueryUtils;
 import org.apache.iotdb.tsfile.file.metadata.ChunkMetadata;
 import org.apache.iotdb.tsfile.read.TsFileSequenceReader;
+import org.apache.iotdb.tsfile.read.common.BatchData;
 import org.apache.iotdb.tsfile.read.common.Chunk;
 import org.apache.iotdb.tsfile.read.common.Path;
 import org.apache.iotdb.tsfile.read.reader.IChunkReader;
+import org.apache.iotdb.tsfile.read.reader.IPageReader;
 import org.apache.iotdb.tsfile.read.reader.chunk.ChunkReader;
 import org.apache.iotdb.tsfile.utils.Pair;
 
@@ -29,16 +33,17 @@ public class PreAggregationUtil {
       Path seriesPath, TsFileSequenceReader reader, Collection<Modification> allModifications)
       throws IOException {
     List<Modification> modifications = new ArrayList<>();
-    for (Modification modification : allModifications) {
-      if (modification.getPath().matchFullPath((PartialPath) seriesPath)) {
-        modifications.add(modification);
-      }
-    }
+//    for (Modification modification : allModifications) {
+//      if (modification.getPath().matchFullPath((PartialPath) seriesPath)) {
+//        modifications.add(modification);
+//      }
+//    }
 
     List<ChunkMetadata> chunkMetadataList = reader.getChunkMetadataList(seriesPath, true);
-    if (!modifications.isEmpty()) {
-      QueryUtils.modifyChunkMetaData(chunkMetadataList, modifications);
-    }
+//    if (!modifications.isEmpty()) {
+//      QueryUtils.modifyChunkMetaData(chunkMetadataList, modifications);
+//    }
+    QueryUtils.modifyChunkMetaData(chunkMetadataList, new ArrayList<>(allModifications));
 
     List<Pair<Long, IChunkReader>> res = new LinkedList<>();
     for (ChunkMetadata metadata : chunkMetadataList) {
@@ -53,7 +58,7 @@ public class PreAggregationUtil {
     Map<String, Long> allTsFiles = new HashMap<>();
     File tmpFile = new File(dataDir);
     File[] files = tmpFile.listFiles();
-    if (files == null || files.length == 0) {
+    if (files == null) {
       return allTsFiles;
     }
 
@@ -65,5 +70,33 @@ public class PreAggregationUtil {
       }
     }
     return allTsFiles;
+  }
+
+  public static void scanOneTsFile(String tsFilePath, Collection<Modification> allModifications)
+          throws IOException {
+    TsFileSequenceReader reader = new TsFileSequenceReader(tsFilePath);
+    List<Path> seriesPaths = reader.getAllPaths();
+    for (Path seriesPath : seriesPaths) {
+      FileSeriesStat fileSeriesStat = new FileSeriesStat(seriesPath, tsFilePath);
+      List<Pair<Long, IChunkReader>> chunkOffsetReaderPairs =
+              PreAggregationUtil.getChunkReaders(seriesPath, reader, allModifications);
+      if (chunkOffsetReaderPairs.isEmpty()) {
+        return;
+      }
+
+      for (Pair<Long, IChunkReader> pair : chunkOffsetReaderPairs) {
+        fileSeriesStat.setCurrentChunkOffset(pair.left);
+        fileSeriesStat.startNewChunk();
+        List<IPageReader> pageReaders = pair.right.loadPageReaderList();
+
+        for (IPageReader pageReader : pageReaders) {
+          BatchData batchData = pageReader.getAllSatisfiedPageData();
+          SeriesStat stat = new SeriesStat(batchData);
+          fileSeriesStat.addPageSeriesStat(stat);
+        }
+        fileSeriesStat.endChunk();
+      }
+      fileSeriesStat.endFile();
+    }
   }
 }

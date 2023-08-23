@@ -11,11 +11,11 @@ import org.apache.iotdb.tsfile.read.filter.factory.FilterFactory;
 
 import junit.framework.TestCase;
 import org.apache.iotdb.tsfile.utils.Pair;
-import org.junit.Assert;
 
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class RDBMSTest extends TestCase {
 
@@ -23,27 +23,12 @@ public class RDBMSTest extends TestCase {
 
   public void testAggregate() throws IllegalPathException {
     PartialPath seriesPath = new PartialPath("root.test.g_0.d_0.s_0");
-    AggregationType aggregationType = AggregationType.PREAGG_SUM;
     Filter timeFilter =
         FilterFactory.or(
             TimeFilter.between(1600000000000L, 1600769999000L, false),
             TimeFilter.gt(1606930000000L));
-    Pair<Double, Double> aggregateResult = DB.aggregate(seriesPath, aggregationType, timeFilter);
+    Map<String, TsFileSeriesStat> res = DB.aggregate(seriesPath, timeFilter);
     String a = "";
-  }
-
-  public void testGetNewTimeFilter() {
-    Filter res;
-    Path seriesPath = new Path("root.test.g_0.d_0.s_0");
-    res = DB.getNewTimeFilter(null, seriesPath);
-    Assert.assertNull(res);
-
-    Filter timeFilter =
-        FilterFactory.or(
-            TimeFilter.between(1600000000000L, 1600769999000L, false),
-            TimeFilter.gt(1606930000000L));
-
-    res = DB.getNewTimeFilter(timeFilter, seriesPath);
   }
 
   public void testGetReadFileSeriesSQL() {
@@ -57,6 +42,16 @@ public class RDBMSTest extends TestCase {
     String sql1 = DB.getReadChunkSeriesSQL(null, timeFilter);
     String sql2 = DB.getReadChunkSeriesSQL(new HashSet<>(), timeFilter);
     String sql3 = DB.getReadChunkSeriesSQL(new HashSet<>(Arrays.asList("file1", "file2", "file3")), timeFilter);
+  }
+
+  public void testGetReadPageSeriesSQL() {
+    Set<String> filePaths = new HashSet<>(Arrays.asList("file1", "file2"));
+    Set<Integer> chunkIDs = new HashSet<>(Arrays.asList(1, 2, 3, 4));
+    Filter timeFilter = TimeFilter.gt(1606930000000L);
+    String sql1 = DB.getAggregatePageSeriesStatsSQL(null, chunkIDs, timeFilter);
+    String sql2 = DB.getAggregatePageSeriesStatsSQL(new HashSet<>(), chunkIDs, timeFilter);
+    String sql3 = DB.getAggregatePageSeriesStatsSQL(filePaths, chunkIDs, timeFilter);
+    String a = "1";
   }
 
   public void testGetAllStatsUsed() {

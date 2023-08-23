@@ -40,6 +40,8 @@ import org.apache.iotdb.db.engine.memtable.AlignedWritableMemChunkGroup;
 import org.apache.iotdb.db.engine.memtable.IMemTable;
 import org.apache.iotdb.db.engine.modification.Deletion;
 import org.apache.iotdb.db.engine.modification.Modification;
+import org.apache.iotdb.db.engine.preaggregation.scheduler.PreAggregationTaskPoolManager;
+import org.apache.iotdb.db.engine.preaggregation.task.TsFileUpdateTask;
 import org.apache.iotdb.db.engine.querycontext.ReadOnlyMemChunk;
 import org.apache.iotdb.db.engine.storagegroup.DataRegion.UpdateEndTimeCallBack;
 import org.apache.iotdb.db.exception.TsFileProcessorException;
@@ -79,7 +81,9 @@ import org.apache.iotdb.tsfile.write.writer.RestorableTsFileIOWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1216,6 +1220,17 @@ public class TsFileProcessor {
     }
   }
 
+  public static BufferedWriter flushTimeWriter;
+  static {
+    try {
+      flushTimeWriter = new BufferedWriter(new FileWriter("D:\\flush.csv"));
+      flushTimeWriter.write("Data,Preagg,Foot\n");
+    } catch (IOException e) {
+      e.printStackTrace();
+      flushTimeWriter = null;
+    }
+  }
+
   /**
    * Take the first MemTable from the flushingMemTables and flush it. Called by a flush thread of
    * the flush manager pool
@@ -1227,10 +1242,15 @@ public class TsFileProcessor {
     // signal memtable only may appear when calling asyncClose()
     if (!memTableToFlush.isSignalMemTable()) {
       try {
+        long dataStartTime = System.currentTimeMillis();
         writer.mark();
         MemTableFlushTask flushTask =
             new MemTableFlushTask(memTableToFlush, writer, storageGroupName);
         flushTask.syncFlushMemTable();
+        long dataEndTime = System.currentTimeMillis();
+        if (flushTimeWriter != null) {
+          flushTimeWriter.write(String.valueOf(dataEndTime-dataStartTime));
+        }
       } catch (Throwable e) {
         if (writer == null) {
           logger.info(
@@ -1332,6 +1352,7 @@ public class TsFileProcessor {
     // retry to avoid unnecessary read-only mode
     int retryCnt = 0;
     while (shouldClose && flushingMemTables.isEmpty() && writer != null) {
+      long footStart = System.currentTimeMillis();
       try {
         writer.mark();
         updateCompressionRatio();
@@ -1342,6 +1363,18 @@ public class TsFileProcessor {
               tsFileResource.getTsFile().getAbsolutePath());
         }
         endFile();
+        long preaggStart = System.currentTimeMillis();
+        String tsFilePath = tsFileResource.getTsFile().getAbsolutePath();
+//        PreAggregationTaskPoolManager.getInstance()
+//            .submit(new TsFileUpdateTask(tsFilePath));
+        long preaggEnd = System.currentTimeMillis();
+        if (flushTimeWriter != null) {
+          try {
+            flushTimeWriter.write(String.format(",%d", preaggEnd-preaggStart));
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+        }
         if (logger.isDebugEnabled()) {
           logger.debug("{} flushingMemtables is clear", storageGroupName);
         }
@@ -1390,6 +1423,18 @@ public class TsFileProcessor {
       synchronized (flushingMemTables) {
         flushingMemTables.notifyAll();
       }
+      long footEnd = System.currentTimeMillis();
+      try {
+        flushTimeWriter.write(String.format(",%d", footEnd-footStart));
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+    if (flushTimeWriter != null) {
+      try {
+        flushTimeWriter.newLine();
+        flushTimeWriter.flush();
+      } catch (IOException ignored) {}
     }
   }
 

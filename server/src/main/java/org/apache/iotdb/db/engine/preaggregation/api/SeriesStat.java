@@ -1,5 +1,7 @@
 package org.apache.iotdb.db.engine.preaggregation.api;
 
+import org.apache.iotdb.db.engine.preaggregation.exception.UnsupportedAggregationTypeException;
+import org.apache.iotdb.db.query.aggregation.AggregationType;
 import org.apache.iotdb.tsfile.read.common.BatchData;
 
 import java.sql.ResultSet;
@@ -131,6 +133,29 @@ public class SeriesStat implements Cloneable {
 
   public long getEndTimestamp() {
     return endTimestamp;
+  }
+
+  public double getStatValue(AggregationType aggregationType)
+      throws UnsupportedAggregationTypeException {
+    switch (aggregationType) {
+      case SUM:
+      case PREAGG_SUM:
+        return sum;
+      case COUNT:
+      case PREAGG_COUNT:
+        return (double) cnt;
+      case MAX_VALUE:
+      case PREAGG_MAX_VALUE:
+        return maxValue;
+      case MIN_VALUE:
+      case PREAGG_MIN_VALUE:
+        return minValue;
+      case AVG:
+      case PREAGG_AVG:
+        return sum / cnt;
+      default:
+        throw new UnsupportedAggregationTypeException(aggregationType);
+    }
   }
 
   @Override

@@ -48,6 +48,9 @@ import org.apache.iotdb.db.engine.flush.TsFileFlushPolicy;
 import org.apache.iotdb.db.engine.memtable.IMemTable;
 import org.apache.iotdb.db.engine.modification.Deletion;
 import org.apache.iotdb.db.engine.modification.ModificationFile;
+import org.apache.iotdb.db.engine.preaggregation.scheduler.PreAggregationTaskPoolManager;
+import org.apache.iotdb.db.engine.preaggregation.task.TsFileDeleteTask;
+import org.apache.iotdb.db.engine.preaggregation.task.TsFileUpdateTask;
 import org.apache.iotdb.db.engine.querycontext.QueryDataSource;
 import org.apache.iotdb.db.engine.trigger.executor.TriggerEngine;
 import org.apache.iotdb.db.engine.trigger.executor.TriggerEvent;
@@ -2415,6 +2418,8 @@ public class DataRegion {
           // remember to close mod file
           tsFileResource.getModFile().close();
         }
+        String tsFilePath = tsFileResource.getTsFile().getAbsolutePath();
+        PreAggregationTaskPoolManager.getInstance().submit(new TsFileUpdateTask(tsFilePath));
         logger.info(
             "[Deletion] Deletion with path:{}, time:{}-{} written into mods file:{}.",
             deletion.getPath(),
@@ -3216,6 +3221,8 @@ public class DataRegion {
     if (tsFileResourceToBeDeleted == null) {
       return false;
     }
+    String tsFilePath = tsFileResourceToBeDeleted.getTsFile().getAbsolutePath();
+    PreAggregationTaskPoolManager.getInstance().submit(new TsFileDeleteTask(tsFilePath));
     tsFileResourceToBeDeleted.writeLock();
     try {
       tsFileResourceToBeDeleted.remove();

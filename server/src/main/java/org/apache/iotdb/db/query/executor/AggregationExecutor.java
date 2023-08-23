@@ -25,6 +25,7 @@ import org.apache.iotdb.commons.path.MeasurementPath;
 import org.apache.iotdb.commons.path.PartialPath;
 import org.apache.iotdb.db.conf.IoTDBDescriptor;
 import org.apache.iotdb.db.engine.StorageEngine;
+import org.apache.iotdb.db.engine.preaggregation.exception.UnsupportedAggregationTypeException;
 import org.apache.iotdb.db.engine.querycontext.QueryDataSource;
 import org.apache.iotdb.db.engine.storagegroup.DataRegion;
 import org.apache.iotdb.db.exception.StorageEngineException;
@@ -723,7 +724,7 @@ public class AggregationExecutor {
   protected void aggregateWithValueFilter(
       TimeGenerator timestampGenerator,
       Map<IReaderByTimestamp, List<List<Integer>>> readerToAggrIndexesMap)
-      throws IOException {
+      throws IOException, QueryProcessException {
     List<Boolean> cached =
         markFilterdPaths(
             expression, new ArrayList<>(selectedSeries), timestampGenerator.hasOrNode());
